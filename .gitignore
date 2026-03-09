@@ -1,0 +1,7 @@
+data/
+*__pycache__/
+build/
+test/
+dist/
+output/
+*.log

@@ -1,0 +1,5 @@
+pydantic
+rapidfuzz
+openpyxl
+Jinja2
+pillow

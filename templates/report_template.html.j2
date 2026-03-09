@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Reporte de Depuración — Lineup Portuario</title>
+<style>
+{# ── FUENTES: se espera que el servidor/generador inyecte las rutas
+   o que las TTF estén en la misma carpeta que el HTML generado.
+   Para auto-contención, reemplaza las src por data-URIs base64. ──#}
+@font-face {
+  font-family: 'DepMono';
+  font-weight: 400;
+  src: url('LiberationMono-Regular.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'DepMono';
+  font-weight: 700;
+  src: url('LiberationMono-Bold.ttf') format('truetype');
+}
+
+{# El CSS completo se mantiene igual que en el HTML standalone #}
+:root {
+  --bg:     #f5f2eb; --paper: #faf8f3; --ink: #1a1a18; --ink2: #3a3a36;
+  --muted:  #7a7a6e; --rule: #c8c4b8; --rule2: #dedad2;
+  --accent: #c0392b; --accent2: #e74c3c; --warn: #d35400;
+  --ok:     #27ae60; --hi: #f39c12;
+  --mono:   'DepMono', 'Courier New', monospace;
+}
+/* ... mismo CSS del standalone (omitido aquí por brevedad, se comparte) ... */
+
+
+:root {
+  --bg:       #f5f2eb;
+  --paper:    #faf8f3;
+  --ink:      #1a1a18;
+  --ink2:     #3a3a36;
+  --muted:    #7a7a6e;
+  --rule:     #c8c4b8;
+  --rule2:    #dedad2;
+  --accent:   #c0392b;
+  --accent2:  #e74c3c;
+  --warn:     #d35400;
+  --ok:       #27ae60;
+  --hi:       #f39c12;
+  --mono:     'DepMono', 'Courier New', monospace;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* ── NOISE TEXTURE overlay ── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 999;
+  opacity: .025;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 180px;
+}
+
+/* ── HEADER ── */
+.hdr {
+  background: var(--ink);
+  color: var(--bg);
+  padding: 0;
+  border-bottom: 4px solid var(--accent);
+}
+.hdr-inner {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 28px 40px 24px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: end;
+  gap: 24px;
+}
+.hdr-eyebrow {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .25em;
+  text-transform: uppercase;
+  color: var(--accent2);
+  margin-bottom: 8px;
+}
+.hdr-title {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -.01em;
+  line-height: 1.1;
+}
+.hdr-meta {
+  text-align: right;
+  font-size: 10px;
+  color: #8a8a7a;
+  line-height: 2;
+}
+.hdr-meta strong { color: #c8c4b0; font-weight: 700; }
+
+/* ── CONTAINER ── */
+.wrap { max-width: 1280px; margin: 0 auto; padding: 36px 40px 80px; }
+
+/* ── STAT STRIP ── */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border: 2px solid var(--ink);
+  margin-bottom: 40px;
+}
+.stat {
+  padding: 18px 22px;
+  border-right: 2px solid var(--ink);
+  position: relative;
+}
+.stat:last-child { border-right: none; }
+.stat-label {
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.stat-value {
+  font-size: 36px;
+  font-weight: 700;
+  line-height: 1;
+}
+.stat-value.red  { color: var(--accent); }
+.stat-value.warn { color: var(--warn); }
+.stat-value.ok   { color: var(--ok); }
+.stat-value.ink  { color: var(--ink); }
+.stat-sub {
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+/* accent bar bottom */
+.stat::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 3px;
+}
+.stat:nth-child(1)::after { background: var(--ink); }
+.stat:nth-child(2)::after { background: var(--accent); }
+.stat:nth-child(3)::after { background: var(--warn); }
+.stat:nth-child(4)::after { background: var(--ok); }
+
+/* ── SECTION LABEL ── */
+.sec-label {
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: .25em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 14px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.sec-label span { flex: 1; height: 0; border-top: 1px solid var(--rule); }
+
+/* ── OFFICE BLOCK ── */
+.office { margin-bottom: 44px; }
+.office-bar {
+  display: flex;
+  align-items: stretch;
+  border: 2px solid var(--ink);
+  margin-bottom: 8px;
+}
+.office-name {
+  background: var(--ink);
+  color: var(--bg);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+}
+.office-file {
+  padding: 8px 16px;
+  font-size: 11px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  flex: 1;
+  border-left: 2px solid var(--ink);
+}
+.office-count {
+  padding: 8px 16px;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  border-left: 2px solid var(--ink);
+}
+.office-count.has-err { color: var(--accent); }
+.office-count.no-err  { color: var(--ok); }
+
+/* ── SHEET ── */
+.sheet {
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--ink2);
+  margin-bottom: 6px;
+  background: var(--paper);
+}
+.sheet-hdr {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--rule2);
+  cursor: pointer;
+  background: var(--paper);
+  user-select: none;
+  transition: background .1s;
+}
+.sheet-hdr:hover { background: #f0ede4; }
+.sheet.has-err { border-left-color: var(--accent); }
+.sheet.warn-hdr { border-left-color: var(--hi); }
+
+.sheet-title {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: .04em;
+}
+.sheet-resolved {
+  font-size: 10px;
+  color: var(--muted);
+}
+.badge {
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border: 1.5px solid currentColor;
+}
+.badge-err  { color: var(--accent); }
+.badge-warn { color: var(--warn); }
+.badge-ok   { color: var(--ok); }
+.sheet-caret {
+  margin-left: auto;
+  font-size: 14px;
+  color: var(--muted);
+  transition: transform .15s;
+}
+.sheet.closed .sheet-caret { transform: rotate(-90deg); }
+.sheet.closed .sheet-body  { display: none; }
+
+/* ── TABLE ── */
+.tbl-wrap { overflow-x: auto; }
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+thead tr { background: #eeeadf; }
+th {
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 7px 14px;
+  text-align: left;
+  border-bottom: 2px solid var(--rule);
+  white-space: nowrap;
+}
+td {
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--rule2);
+  vertical-align: top;
+}
+tbody tr:hover { background: #f0ede4; }
+tbody tr:last-child td { border-bottom: none; }
+
+.td-row  { color: var(--muted); font-size: 11px; white-space: nowrap; }
+.td-col  { color: var(--muted); font-size: 11px; white-space: nowrap; }
+.td-field { font-weight: 700; color: var(--accent); font-size: 11.5px; white-space: nowrap; }
+.td-val {
+  font-size: 11px;
+  color: var(--ink2);
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.td-val.null { color: var(--muted); font-style: italic; }
+.td-msg { color: var(--ink); font-size: 12px; max-width: 440px; }
+
+/* error row stripe */
+tbody tr { border-left: 3px solid transparent; }
+tbody tr:hover { border-left-color: var(--accent2); }
+
+/* ── EMPTY ── */
+.empty {
+  padding: 16px 14px;
+  font-size: 11px;
+  color: var(--ok);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.empty::before { content: '✓  sin errores de validación'; }
+
+/* ── FOOTER ── */
+footer {
+  margin-top: 60px;
+  padding: 16px 40px;
+  border-top: 2px solid var(--ink);
+  display: flex;
+  justify-content: space-between;
+  font-size: 9.5px;
+  color: var(--muted);
+  background: var(--bg);
+}
+
+/* ── ANIMATIONS ── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.office {
+  animation: fadeUp .3s ease both;
+}
+.office:nth-child(1) { animation-delay: .05s; }
+.office:nth-child(2) { animation-delay: .1s; }
+.office:nth-child(3) { animation-delay: .15s; }
+.office:nth-child(4) { animation-delay: .2s; }
+.office:nth-child(5) { animation-delay: .25s; }
+
+
+/* ── Overlap Cards ── */
+.overlaps-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 10px;
+}
+
+.overlap-card {
+  width: 520px;
+  background: #fff;
+  border-radius: 6px;
+  border: 1px solid #ddd;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.overlap-header {
+  background: #1a1a2e;
+  padding: 12px 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.overlap-vessel-icon {
+  width: 28px;
+  height: 28px;
+  background: #e63946;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.overlap-vessel-name {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: 0.05em;
+}
+
+.overlap-badge {
+  margin-left: auto;
+  background: #e63946;
+  color: white;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 20px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.overlap-body {
+  display: grid;
+  grid-template-columns: 1fr 36px 1fr;
+}
+
+.overlap-side {
+  padding: 16px 18px;
+}
+
+.overlap-side-b {
+  border-left: 1px solid #eee;
+}
+
+.overlap-sheet-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #f4f4f4;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: #444;
+  margin-bottom: 12px;
+}
+
+.overlap-sheet-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #1a1a2e;
+  display: inline-block;
+}
+
+.overlap-row-num {
+  font-size: 11px;
+  color: #999;
+  margin-bottom: 10px;
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+.overlap-date-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-bottom: 1px solid #f5f5f5;
+}
+
+.overlap-date-row:last-child {
+  border-bottom: none;
+}
+
+.overlap-date-key {
+  font-size: 11px;
+  font-weight: 600;
+  color: #aaa;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.overlap-date-val {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  color: #1a1a2e;
+}
+
+.overlap-date-val.conflict {
+  color: #e63946;
+  font-weight: 600;
+}
+
+.overlap-vs {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fafafa;
+  border-left: 1px solid #eee;
+  border-right: 1px solid #eee;
+}
+
+.overlap-vs span {
+  writing-mode: vertical-rl;
+  font-size: 9px;
+  font-weight: 600;
+  color: #ccc;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.overlap-footer {
+  background: #fff8f8;
+  border-top: 1px solid #fde0e0;
+  padding: 8px 18px;
+  font-size: 11px;
+  color: #c0392b;
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+
+</style>
+</head>
+<body>
+
+<header class="hdr">
+  <div class="hdr-inner">
+    <div>
+      <div class="hdr-eyebrow">Sistema de Depuración · Lineup Portuario</div>
+      <div class="hdr-title">Reporte de Errores de Validación</div>
+    </div>
+    <div class="hdr-meta">
+      Generado el<br>
+      <strong>{{ generated_at }}</strong>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  {# ── STATS ── #}
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-label">Oficinas procesadas</div>
+      <div class="stat-value ink">{{ offices | length }}</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Total errores</div>
+      <div class="stat-value red">{{ total_errors }}</div>
+      <div class="stat-sub">{{ sheets_with_errors }} hoja{{ 's' if sheets_with_errors != 1 }} afectada{{ 's' if sheets_with_errors != 1 }}</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Hojas con errores</div>
+      <div class="stat-value warn">{{ sheets_with_errors }}</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Hojas limpias</div>
+      <div class="stat-value ok">{{ sheets_ok }}</div>
+    </div>
+  </div>
+
+  <div class="sec-label">Errores por oficina <span></span></div>
+
+  {# ── OFICINAS ── #}
+  {% for office in offices %}
+  <div class="office">
+    <div class="office-bar">
+      <span class="office-name">{{ office.office }}</span>
+      <span class="office-file">{{ office.file }}</span>
+      <span class="office-count {{ 'has-err' if office.total_errors > 0 else 'no-err' }}">
+        {{ office.total_errors ~ ' error' ~ ('es' if office.total_errors != 1 else '') if office.total_errors > 0 else 'sin errores' }}
+      </span>      
+    </div>
+
+    {% for sheet in office.sheets %}
+    {% set has_err = sheet.errors | length > 0 %}
+    {% set sid = loop.index ~ '_' ~ loop.revindex %}
+    <div class="sheet {{ 'has-err' if has_err else '' }} {{ 'warn-hdr' if not sheet.headers_ok and not has_err else '' }}"
+         id="sh_{{ office.office }}_{{ loop.index }}">
+      <div class="sheet-hdr" onclick="tog('sh_{{ office.office }}_{{ loop.index }}')">
+        <span class="sheet-title">{{ sheet.expected_name }}</span>
+        {% if sheet.expected_name != sheet.matched_name %}
+        <span class="sheet-resolved">→ "{{ sheet.matched_name }}"</span>
+        {% endif %}
+        {% if has_err %}
+        <span class="badge badge-err">{{ sheet.errors | length }} err</span>
+        {% else %}
+        <span class="badge badge-ok">ok</span>
+        {% endif %}
+        {% if not sheet.headers_ok %}
+        <span class="badge badge-warn">headers</span>
+        {% endif %}
+        <span class="sheet-caret">▾</span>
+      </div>
+      <div class="sheet-body">
+        {% if sheet.errors %}
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Fila</th><th>Col</th><th>Campo</th>
+                <th>Valor recibido</th><th>Motivo del error</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for e in sheet.errors %}
+              <tr>
+                <td class="td-row">{{ e.row }}</td>
+                <td class="td-col">{{ e.col if e.col > 0 else '—' }}</td>
+                <td class="td-field">{{ e.field }}</td>
+                <td>
+                  {% if e.value is none or e.value == '' %}
+                  <span class="td-val null">nulo / vacío</span>
+                  {% else %}
+                  <span class="td-val">{{ e.value | e }}</span>
+                  {% endif %}
+                </td>
+                <td class="td-msg">{{ e.msg | e }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="empty"></div>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+
+  </div>
+  {% endfor %}
+
+  {# ── ERRORES GENERALES (extensible) ── #}
+  {% if general_errors %}
+  <div style="margin-top:40px">
+    <div class="sec-label">Errores generales <span></span></div>
+    {# Solapamientos, dominio, etc. se renderizan aquí en secciones futuras #}
+    {% for section in general_errors %}
+    
+    {% if section.type == "overlaps" %}
+
+    
+      <div class="office">
+        <div class="office-bar">
+          <span class="office-name">{{ section.title }}</span>
+          
+          <span class="office-count has-err">{{ section.entries | length }}</span>        
+        </div>
+        {# tabla genérica o contenido custom por tipo #}
+      </div>
+      
+      <div class="overlaps-grid">
+        {% for e in section.entries %}
+        <div class="overlap-card">
+      
+          <div class="overlap-header">
+            <div class="overlap-vessel-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
+                <path d="M20 21l-8-4-8 4V5a2 2 0 012-2h12a2 2 0 012 2z"/>
+              </svg>
+            </div>
+            <span class="overlap-vessel-name">{{ e.vessel }}</span>
+            <span class="overlap-badge">Solapamiento</span>
+          </div>
+      
+          <div class="overlap-body">
+      
+            <div class="overlap-side">
+              <div class="overlap-sheet-tag">
+                <span class="overlap-sheet-dot"></span>
+                {{ e.sheet_a }}
+              </div>
+              <div class="overlap-row-num">Fila {{ e.row_a }}</div>
+              <div class="overlap-date-row">
+                <span class="overlap-date-key">DOA</span>
+                <span class="overlap-date-val">{{ e.doa_a or '—' }}</span>
+              </div>
+              <div class="overlap-date-row">
+                <span class="overlap-date-key">ETC</span>
+                <span class="overlap-date-val conflict">{{ e.etc_a or '—' }}</span>
+              </div>
+            </div>
+      
+            <div class="overlap-vs"><span>vs</span></div>
+      
+            <div class="overlap-side overlap-side-b">
+              <div class="overlap-sheet-tag">
+                <span class="overlap-sheet-dot"></span>
+                {{ e.sheet_b }}
+              </div>
+              <div class="overlap-row-num">Fila {{ e.row_b }}</div>
+              <div class="overlap-date-row">
+                <span class="overlap-date-key">DOA</span>
+                <span class="overlap-date-val conflict">{{ e.doa_b or '—' }}</span>
+              </div>
+              <div class="overlap-date-row">
+                <span class="overlap-date-key">ETC</span>
+                <span class="overlap-date-val">{{ e.etc_b or '—' }}</span>
+              </div>
+            </div>
+      
+          </div>
+      
+          <div class="overlap-footer">{{ e.msg }}</div>
+      
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}    
+    {% endfor %}
+  </div>
+  {% endif %}
+
+</div>
+
+<footer>
+  <span>Lineup Portuario — Depuración automática</span>
+  <span>{{ generated_at }}</span>
+</footer>
+
+<script>
+function tog(id) {
+  document.getElementById(id).classList.toggle('closed');
+}
+// auto-collapse hojas sin errores al cargar
+document.querySelectorAll('.sheet:not(.has-err)').forEach(el => el.classList.add('closed'));
+</script>
+</body>
+</html>

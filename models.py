@@ -1,0 +1,420 @@
+
+from decimal import Decimal,InvalidOperation
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator
+from pydantic_core import PydanticCustomError
+from enum import Enum
+from datetime import date
+from typing import Any
+import utils
+
+class StatusEnum(str, Enum):
+   ANCHORED      = "ANCHORED"
+   ANNOUNCED     = "ANNOUNCED"
+   AT_LOAD_PORT  = "AT LOAD PORT" # No esta ni cargando ni descargando
+   BERTHED       = "BERTHED"
+   DRIFTING      = "DRIFTING"
+   SAILED        = "SAILED"
+
+# STATUS que exigen ciertas fechas presentes
+_STATUS_REQUIRES_ETB = {StatusEnum.BERTHED}
+_STATUS_REQUIRES_ETC = {StatusEnum.SAILED}
+_STATUS_NO_REQUIRES_ATA = {StatusEnum.ANNOUNCED}
+_VALID_FUTURE_STATUSES = {StatusEnum.ANNOUNCED}
+
+class OperationEnum(str, Enum):
+   TO_DISCHARGE  = "TO DISCHARGE"
+   DISCHARGING   = "DISCHARGING"
+   DISCHARGED    = "DISCHARGED"
+   TO_LOAD       = "TO LOAD" 
+   LOADING       = "LOADING"
+   LOADED        = "LOADED"
+   TO_REPAIR     = "TO REPAIR" 
+   TOWING        = "TOWING"
+
+# Estados validso en base a la operacion
+
+_VALID_STATUS_OPERATIONS = {
+   StatusEnum.ANNOUNCED: {OperationEnum.TO_DISCHARGE, OperationEnum.TO_LOAD},
+   StatusEnum.AT_LOAD_PORT: {OperationEnum.TO_DISCHARGE, OperationEnum.TO_LOAD, OperationEnum.TO_REPAIR},
+   StatusEnum.DRIFTING: {OperationEnum.TO_REPAIR, OperationEnum.TOWING},
+   StatusEnum.SAILED: {OperationEnum.LOADED, OperationEnum.DISCHARGED}, # Este toca ver si el barco cuando sale, puede tener otro estado
+   StatusEnum.BERTHED: {
+      OperationEnum.DISCHARGING, 
+      OperationEnum.DISCHARGED, 
+      OperationEnum.LOADING, 
+      OperationEnum.LOADED, 
+      OperationEnum.TO_REPAIR
+   },
+
+}   
+
+# COAL,CLINKER/CEMENT Y GRAINS, tienen que tener MT_BY_PRODCT,total y tipo de producto cuando zarpa, las otras puede ser el mismo producto
+class TypeEnum(str, Enum):
+   CLINKER_CEMENT  = "CLINKER/CEMENT"
+   COAL            = "COAL" 
+   CRUDE           = "CRUDE"
+   DRY_PRODUCTS    = "DRY PRODUCTS"
+   EDIBLE_OIL      = "EDIBLE OIL"
+   FERTILIZERS     = "FERTILIZERS"
+   GRAINS          = "GRAINS"
+   LIQUID_CHEMS    = "LIQUID/CHEMS"
+   LIVESTOCK       = "LIVESTOCK"
+   OTHERS          = "OTHERS"
+   PROJECT_CARGO   = "PROJECT CARGO"
+   STEEL           = "STEEL"
+
+# El tipo de carga es mas complicado la verdad
+
+class PeriodEnum(str, Enum):
+   AM = "AM"
+   PM = "PM"
+
+_PERIOD_ORDER = {PeriodEnum.AM: 0, PeriodEnum.PM: 1}
+
+def _period_exceeds(p1: PeriodEnum | None, p2: PeriodEnum | None) -> bool:
+   """True solo si AMBOS son conocidos y p1 > p2."""
+   if p1 is None or p2 is None:
+      return False
+   return _PERIOD_ORDER[p1] > _PERIOD_ORDER[p2]
+
+class LineUpBaseModel(BaseModel):
+   model_config = ConfigDict(
+      str_to_upper=True
+   )
+
+   VESSEL:    str
+   PIER:      str | None
+   TERMINAL:  str | None
+   AGENCY:    str | None
+   CHARTERER: str | None
+   SHIPOWNER: str | None
+   PRODUCT:   str | None
+   PORT_LOAD_DISCH :  str | None
+   WINDOWS : str | None
+
+   # Listas cerradas
+   STATUS:    StatusEnum
+   OPERATION: OperationEnum
+   TYPE:      TypeEnum | None = None  # puede ser None
+
+   # Fechas
+   DATE_OF_ARRIVAL: date | None
+   DATE_OF_ARRIVAL_PERIOD: PeriodEnum | None
+
+   ETB: date | None
+   ETB_PERIOD: PeriodEnum | None
+
+   ETC: date | None
+   ETC_PERIOD: PeriodEnum | None
+
+   # Cantidades
+   MT_BY_PRODUCT: str | None
+   TOTAL_MT: Decimal | None
+
+    # ------------------------------------------------------------------
+   # Field validators
+   # ------------------------------------------------------------------
+
+   @field_validator("VESSEL", mode="before")
+   @classmethod
+   def vessel_not_empty(cls, v: str | None) -> str:
+      """VESSEL es obligatorio y no puede quedar vacío tras strip."""
+      cleaned = utils.remove_multiple_white_spaces(v)
+      if not cleaned:
+         raise ValueError("VESSEL no puede estar vacío o ser solo espacios.")
+      return cleaned
+
+   @field_validator("PIER", "TERMINAL", "AGENCY","CHARTERER", "SHIPOWNER", "PRODUCT", "WINDOWS", mode="before")
+   @classmethod
+   def remove_white_spaces(cls, v : str | None)->str | None:
+      return utils.remove_multiple_white_spaces(v)
+
+   @field_validator("MT_BY_PRODUCT", mode='before')
+   @classmethod
+   def normalize_mt_by_product(cls, v : str | None)->str | None:
+      cleaned =  utils.remove_all_spaces(v)
+      return cleaned if cleaned else None
+
+   @field_validator("TOTAL_MT", mode="before")
+   @classmethod
+   def parse_decimal(cls, v):
+       if v is None:
+           return None
+       try:
+           return Decimal(str(v))    # str(v) evita imprecisiones de float
+       except InvalidOperation:
+           raise ValueError(f"No se puede convertir a Decimal: {v!r}")   
+
+   @field_validator("DATE_OF_ARRIVAL", "ETB", "ETC", mode="before")
+   @classmethod
+   def parse_dates(cls, v: str | int | None | date) -> date | None:
+      return utils.parse_date(v)
+
+   @field_validator("STATUS", "OPERATION", "TYPE", "DATE_OF_ARRIVAL_PERIOD","ETB_PERIOD","ETC_PERIOD", mode="before")
+   @classmethod
+   def normalize_enums(cls, v: str | None)->str | None:
+      v = utils.remove_multiple_white_spaces(v)
+      if v is None:
+         return v
+      return v.upper() if v is not None else v
+
+   # ------------------------------------------------------------------
+   # Model validators (orden: primero fechas, luego status, luego MT)
+   # ------------------------------------------------------------------
+
+   @model_validator(mode='after')
+   def validate_dates(self) -> 'LineUpBaseModel':
+      doa, etb, etc = self.DATE_OF_ARRIVAL, self.ETB, self.ETC   
+      doa_p, etb_p, etc_p = self.DATE_OF_ARRIVAL_PERIOD, self.ETB_PERIOD, self.ETC_PERIOD       
+   
+      if doa is None and etb is None and etc is None:
+         return self
+
+      if doa is not None and etb is not None:
+         if doa > etb:
+            raise PydanticCustomError(
+                'date_order_violation',
+                'DATE_OF_ARRIVAL ({doa}) no puede ser posterior a ETB ({etb}).',
+                {'fields': ['DATE_OF_ARRIVAL', 'ETB'],
+                 'values': {'DATE_OF_ARRIVAL': str(doa), 'ETB': str(etb)}}
+            )
+         if doa == etb and _period_exceeds(doa_p, etb_p):
+            raise PydanticCustomError(
+                'date_order_violation',
+                'DATE_OF_ARRIVAL ({doa}) y ETB ({etb}) son el mismo día pero '
+                'DATE_OF_ARRIVAL_PERIOD ({doa_p}) es posterior a ETB_PERIOD ({etb_p}).',
+                {'fields': ['DATE_OF_ARRIVAL_PERIOD', 'ETB_PERIOD'],
+                 'values': {'DATE_OF_ARRIVAL': str(doa), 'ETB': str(etb),
+                            'DATE_OF_ARRIVAL_PERIOD': doa_p, 'ETB_PERIOD': etb_p}}
+            )   
+      # DOA vs ETC
+      if doa is not None and etc is not None:
+         if doa > etc:
+            raise PydanticCustomError(
+               'date_order_violation',
+               'DATE_OF_ARRIVAL ({doa}) no puede ser posterior a ETC ({etc}).',
+               {'fields': ['DATE_OF_ARRIVAL', 'ETC'],
+                'values': {'DATE_OF_ARRIVAL': str(doa), 'ETC': str(etc)}}
+            )
+         if doa == etc and _period_exceeds(doa_p, etc_p):
+            raise PydanticCustomError(
+               'date_order_violation',
+               'DATE_OF_ARRIVAL ({doa}) y ETC ({etc}) son el mismo día pero '
+               'DATE_OF_ARRIVAL_PERIOD ({doa_p}) es posterior a ETC_PERIOD ({etc_p}).',
+               {'fields': ['DATE_OF_ARRIVAL_PERIOD', 'ETC_PERIOD'],
+                'values': {'DATE_OF_ARRIVAL': str(doa), 'ETC': str(etc),
+                             'DATE_OF_ARRIVAL_PERIOD': doa_p, 'ETC_PERIOD': etc_p}}
+            )
+
+      # ETB vs ETC
+      if etb is not None and etc is not None:
+         if etb > etc:
+            raise PydanticCustomError(
+               'date_order_violation',
+               'ETB ({etb}) no puede ser posterior a ETC ({etc}).',
+               {'fields': ['ETB', 'ETC'],
+                'values': {'ETB': str(etb), 'ETC': str(etc)}}
+            )
+         if etb == etc and _period_exceeds(etb_p, etc_p):
+            raise PydanticCustomError(
+            'date_order_violation',
+            'ETB ({etb}) y ETC ({etc}) son el mismo día pero '
+            'ETB_PERIOD ({etb_p}) es posterior a ETC_PERIOD ({etc_p}).',
+            {'fields': ['ETB_PERIOD', 'ETC_PERIOD'],
+             'values': {'ETB': str(etb), 'ETC': str(etc),
+                        'ETB_PERIOD': etb_p, 'ETC_PERIOD': etc_p}}
+            )
+
+      return self
+         
+   
+   @model_validator(mode='after')
+   def validate_status_dates(self) -> 'LineUpBaseModel':
+       if self.DATE_OF_ARRIVAL is None and self.STATUS not in _STATUS_NO_REQUIRES_ATA:
+           raise PydanticCustomError(
+               'status_requires_date',
+               "STATUS='{status}' requiere que ATA esté informado.",
+               {'fields': ['STATUS', 'DATE_OF_ARRIVAL'], 'values': {'STATUS': self.STATUS.value, 'DATE_OF_ARRIVAL': None}}
+           )
+       if self.STATUS in _STATUS_REQUIRES_ETB and self.ETB is None:
+           raise PydanticCustomError(
+               'status_requires_date',
+               "STATUS='{status}' requiere que ETB esté informado.",
+               {'fields': ['STATUS', 'ETB'], 'values': {'STATUS': self.STATUS.value, 'ETB': None}}
+           )
+       if self.STATUS in _STATUS_REQUIRES_ETC and self.ETC is None:
+           raise PydanticCustomError(
+               'status_requires_date',
+               "STATUS='{status}' requiere que ETC esté informado.",
+               {'fields': ['STATUS', 'ETC'], 'values': {'STATUS': self.STATUS.value, 'ETC': None}}
+           )
+       return self   
+   
+   @model_validator(mode='after')
+   def validate_status_vs_today(self) -> 'LineUpBaseModel':
+      doa = self.DATE_OF_ARRIVAL
+      if doa is None:
+          return self
+   
+      today = date.today()
+   
+      if doa < today and self.STATUS == StatusEnum.ANNOUNCED:
+         raise PydanticCustomError(
+             'status_date_mismatch',
+             'DATE_OF_ARRIVAL ({DATE_OF_ARRIVAL}) es anterior a hoy ({today}) pero STATUS sigue siendo {STATUS}.',
+             {'fields': ['DATE_OF_ARRIVAL', 'STATUS'], 'values': {'DATE_OF_ARRIVAL': str(doa), 'STATUS': self.STATUS.value, 'today': str(today)}}
+         )
+      if doa > today and self.STATUS not in _VALID_FUTURE_STATUSES:
+         raise PydanticCustomError(
+             'status_date_mismatch',
+             "DATE_OF_ARRIVAL ({doa}) es posterior a hoy ({today}) pero STATUS='{status}'. Barcos futuros solo pueden tener: {valid}.",
+             {'fields': ['DATE_OF_ARRIVAL', 'STATUS'], 'values': {'DATE_OF_ARRIVAL': str(doa), 'STATUS': self.STATUS.value, 'today': str(today), 'valid': [s.value for s in _VALID_FUTURE_STATUSES]}}
+         )
+      return self
+   
+   
+   @model_validator(mode='after')
+   def validate_status_vs_operation(self) -> 'LineUpBaseModel':
+       if self.STATUS not in _VALID_STATUS_OPERATIONS:
+           return self
+   
+       valid_operations = _VALID_STATUS_OPERATIONS[self.STATUS]
+       if self.OPERATION not in valid_operations:
+           raise PydanticCustomError(
+               'invalid_operation_for_status',
+               "STATUS='{status}' tiene una operación inválida '{operation}'. Válidas: {valid}.",
+               {'fields': ['STATUS', 'OPERATION'], 'values': {'STATUS': self.STATUS.value, 'OPERATION': self.OPERATION.value, 'valid': [o.value for o in valid_operations]}}
+           )
+       return self
+   
+   
+   @model_validator(mode='after')
+   def validate_mt_totals(self) -> 'LineUpBaseModel':
+       mt_by_product = self.MT_BY_PRODUCT
+       total_mt      = self.TOTAL_MT
+   
+       if mt_by_product is None and total_mt is None:
+           return self
+   
+       if mt_by_product is None and total_mt is not None:
+           raise PydanticCustomError(
+               'mt_mismatch',
+               'MT_BY_PRODUCT es None pero TOTAL_MT tiene valor ({total_mt}).',
+               {'fields': ['MT_BY_PRODUCT', 'TOTAL_MT'], 'values': {'MT_BY_PRODUCT': None, 'TOTAL_MT': str(total_mt)}}
+           )
+       if mt_by_product is not None and total_mt is None:
+           raise PydanticCustomError(
+               'mt_mismatch',
+               'TOTAL_MT es None pero MT_BY_PRODUCT tiene valor ({mt_by_product}).',
+               {'fields': ['MT_BY_PRODUCT', 'TOTAL_MT'], 'values': {'MT_BY_PRODUCT': mt_by_product, 'TOTAL_MT': None}}
+           )
+       if total_mt < 0 or total_mt > Decimal('300000'):
+           raise PydanticCustomError(
+               'mt_out_of_range',
+               'TOTAL_MT fuera de rango válido: {total_mt}.',
+               {'fields': ['TOTAL_MT'], 'values': {'TOTAL_MT': str(total_mt)}}
+           )
+       parts = mt_by_product.split('/')
+       try:
+           parsed = [Decimal(p.strip()) for p in parts if p.strip()]
+       except Exception:
+           raise PydanticCustomError(
+               'mt_parse_error',
+               "MT_BY_PRODUCT contiene valores no numéricos: '{mt_by_product}'.",
+               {'fields': ['MT_BY_PRODUCT'], 'values': {'MT_BY_PRODUCT': mt_by_product}}
+           )
+       if not parsed:
+           raise PydanticCustomError(
+               'mt_parse_error',
+               'MT_BY_PRODUCT está vacío tras el split.',
+               {'fields': ['MT_BY_PRODUCT'], 'values': {'MT_BY_PRODUCT': mt_by_product}}
+           )
+       computed_sum = sum(parsed)
+       if computed_sum != total_mt:
+           raise PydanticCustomError(
+               'mt_sum_mismatch',
+               'La suma de MT_BY_PRODUCT ({computed_sum}) no coincide con TOTAL_MT ({total_mt}).',
+               {'fields': ['MT_BY_PRODUCT', 'TOTAL_MT'], 'values': {'MT_BY_PRODUCT': mt_by_product, 'TOTAL_MT': str(total_mt), 'computed_sum': str(computed_sum)}}
+           )
+       return self
+
+   
+   def to_client_report(self) -> dict[str, Any]:
+      
+      MONTH_ABBR = {
+          1: "JAN", 2: "FEB", 3: "MAR", 4: "APR",
+          5: "MAY", 6: "JUN", 7: "JUL", 8: "AUG",
+          9: "SEP", 10: "OCT", 11: "NOV", 12: "DEC"
+      }
+      
+      def fmt_date(d: date | None, period: PeriodEnum | None) -> str:
+          if d is None:
+              return "TBC"
+          base = f"{d.day} - {MONTH_ABBR[d.month].lower()}"
+          if period is not None:
+              # "AM" -> "A M", "PM" -> "P M"
+              spaced = " ".join(period.value).lower()
+              return f"{base} {spaced}"
+          return base
+
+
+      
+      def fmt_pier(value: str | None) -> int | str:
+          if value is None:
+              return "TBC"
+          try:
+              return int(value)
+          except (ValueError, TypeError):
+              return value
+      
+      def fmt_mt_by_product(value: str | None) -> str:
+          if value is None:
+              return "TBC"
+          
+          def fmt_number(s: str) -> str:
+              s = s.strip()
+              try:
+                  # Con decimales
+                  if "." in s:
+                      return f"{Decimal(s):,}"
+                  # Entero
+                  return f"{int(s):,}"
+              except (ValueError, InvalidOperation):
+                  return s  # si no es número, lo deja como está
+          
+          # Detecta si tiene slashes (múltiples valores)
+          if "/" in value:
+              parts = value.split("/")
+              return " / ".join(fmt_number(p) for p in parts)
+          
+          return fmt_number(value)
+      
+      
+      def fmt(value) -> Any:
+          if value is None:
+              return "TBC"
+          if isinstance(value, Enum):
+              return value.value
+          if isinstance(value, Decimal):
+              return value  # o str(value) si querés
+          return value
+
+      return {
+          "VESSEL":           fmt(self.VESSEL),
+          "PIER":             fmt_pier(self.PIER),
+          "TERMINAL":         fmt(self.TERMINAL),
+          "AGENCY":           fmt(self.AGENCY),
+          "CHARTERER":        fmt(self.CHARTERER),
+          "SHIPOWNER":        fmt(self.SHIPOWNER),
+          "PRODUCT":          fmt(self.PRODUCT),
+          "PORT_LOAD_DISCH":  fmt(self.PORT_LOAD_DISCH),
+          "WINDOWS":          fmt(self.WINDOWS),
+          "STATUS":           fmt(self.STATUS),
+          "OPERATION":        fmt(self.OPERATION),
+          "TYPE":             fmt(self.TYPE),
+          "DATE_OF_ARRIVAL":  fmt_date(self.DATE_OF_ARRIVAL, self.DATE_OF_ARRIVAL_PERIOD),
+          "ETB":              fmt_date(self.ETB, self.ETB_PERIOD),
+          "ETC":              fmt_date(self.ETC, self.ETC_PERIOD),
+          "MT_BY_PRODUCT":    fmt_mt_by_product(self.MT_BY_PRODUCT),
+          "TOTAL_MT":         fmt(self.TOTAL_MT),
+      }
