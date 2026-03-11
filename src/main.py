@@ -1,10 +1,14 @@
 
+from __future__ import annotations
+import logging
+
+import constants
+from excel.aditional_data import AditionalDataManager
+
 """
 LineUp Depurator - GUI
 Integración con depuration.py + config.ini para opciones de usuario.
 """
-
-from __future__ import annotations
 
 import configparser
 import logging
@@ -13,7 +17,16 @@ import threading
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox
-from PIL import Image, ImageTk
+
+Path('./logs/').mkdir(exist_ok=True)
+
+file_handler = logging.FileHandler('./logs/depuration.log')
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+file_handler.setFormatter(formatter)
+
+logger = logging.getLogger()
+logger.addHandler(file_handler)
+logger.setLevel(logging.INFO)
 
 # ── Palette ────────────────────────────────────────────────────────────────
 BG       = "#1E1E1E"
@@ -41,10 +54,11 @@ CONFIG_PATH = Path("config.ini")
 
 DEFAULTS: dict[str, dict[str, str]] = {
     "paths": {
-        "folder_path":   "./test/",
+        "folder_path":   "./data/",
         "output_path":   "./output/",
         "template_path": "./templates/report_template.html.j2",
         "fonts_dir":     "./fonts/",
+        "adm_path": "./data/tables.xlsx",
     },
     "params": {
         "min_match_score": "80",
@@ -55,6 +69,7 @@ DEFAULTS: dict[str, dict[str, str]] = {
         "fuzzy_sheet_matching": "true",
         "strict_headers":       "false",
         "embed_fonts":          "false",
+        "aditional_comparison" : "true",
     },
 }
 
@@ -186,7 +201,7 @@ class LineUpApp(tk.Tk):
         self.geometry(f"{self.W}x{self.H}")
         self.resizable(False, False)
         self.configure(bg=BG)
-
+        self.aditional_manager :  AditionalDataManager| None = None
         self.cfg = load_config()
         p, v, pr = self.cfg["paths"], self.cfg["validations"], self.cfg["params"]
 
@@ -196,12 +211,14 @@ class LineUpApp(tk.Tk):
         self.template_var = tk.StringVar(value=p["template_path"])
         self.fonts_var    = tk.StringVar(value=p["fonts_dir"])
         self.score_var    = tk.IntVar(value=int(pr["min_match_score"]))
+        self.adm_path_var = tk.StringVar(value= p['adm_path'] )
 
         self.val_headers  = tk.BooleanVar(value=v.getboolean("verify_headers"))
         self.val_overlaps = tk.BooleanVar(value=v.getboolean("detect_overlaps"))
         self.val_fuzzy    = tk.BooleanVar(value=v.getboolean("fuzzy_sheet_matching"))
         self.val_strict   = tk.BooleanVar(value=v.getboolean("strict_headers"))
         self.val_fonts    = tk.BooleanVar(value=v.getboolean("embed_fonts"))
+        self.val_comparison = tk.BooleanVar(value = v.getboolean('aditional_comparison') )
 
         self.running     = False
         self.log_queue: queue.Queue[tuple[str, str]] = queue.Queue()
@@ -421,6 +438,19 @@ class LineUpApp(tk.Tk):
             return
         self._save_config()
 
+        # Carga AditionalDataManager solo si el usuario lo pidió
+        # y solo si no está ya cargado (cache)
+        if self.val_comparison.get() and self.aditional_manager is None:
+            adm_path = Path(self.adm_path_var.get())
+            if not adm_path.exists():
+                messagebox.showerror("Archivo no encontrado", str(adm_path))
+                return
+            try:
+                self.aditional_manager = AditionalDataManager(adm_path, eager=True)
+            except Exception as exc:
+                messagebox.showerror("Error cargando datos adicionales", str(exc))
+                return     
+    
         folder = Path(self.folder_var.get())
         if not folder.exists():
             messagebox.showerror(
@@ -437,7 +467,7 @@ class LineUpApp(tk.Tk):
         self._clear_log()
         threading.Thread(target=self._run_worker, daemon=True).start()
 
-    def _run_worker(self):
+    def _run_worker(self ):
         """Background thread: imports and calls depuration.py."""
         qh = QueueHandler(self.log_queue)
         qh.setFormatter(logging.Formatter("%(message)s"))
@@ -458,11 +488,8 @@ class LineUpApp(tk.Tk):
         root_log.addHandler(qh)
 
         try:
-            from depuration import depurate_lineup_files  # type: ignore
-            from report import render_report              # type: ignore
-            from config import OFFICES                    # type: ignore
-            import config as _cfg                         # type: ignore
-            from client_report import LineUpExcelReport
+            from processors import depurate_lineup_files
+            import reports
 
             cfg = load_config()
             p, v, pr = cfg["paths"], cfg["validations"], cfg["params"]
@@ -473,20 +500,22 @@ class LineUpApp(tk.Tk):
             fonts_dir     = Path(p["fonts_dir"])
             min_score     = int(pr["min_match_score"])
             embed_fonts   = v.getboolean("embed_fonts")
-
-            # Patch runtime constant
-            _cfg.MIN_MATCH_SCORE = min_score
+            compare_aditional = v.getboolean('aditional_comparison',False)
 
             # ── Optional: patch header verify strictness ──────────────────
             # depurate_lineup_files passes min_score; strict_headers would
             # need a separate constant in config.py if desired.
 
-            result = depurate_lineup_files(folder_path, OFFICES, min_score)
+            result = depurate_lineup_files(folder_path, constants.OFFICES, min_score, constants.HEADER_ROW, additional = self.aditional_manager, compare_aditional = compare_aditional)
+
+            # Chambonada aqui XD
+            for row in result.all_rows:
+                row['CHARTERER']
 
             output_path.mkdir(parents=True, exist_ok=True)
             if result.has_errors:
 
-                out = render_report(
+                out = reports.render_validation_report(
                     result=result,
                     template_path=template_path,
                     output_path=output_path / "reporte_depuracion.html",
@@ -495,7 +524,7 @@ class LineUpApp(tk.Tk):
                 )
                 self.log_queue.put(("success", f"✔  Reporte generado: {out}"))
             else:
-                LineUpExcelReport(result.offices).create_report(output_path/'lineup_diario.xlsx')
+                reports.LineUpExcelReport(result.offices).create_report(output_path/'lineup_diario.xlsx')
 
         except ImportError as exc:
             self.log_queue.put(("error", f"ImportError: {exc}"))

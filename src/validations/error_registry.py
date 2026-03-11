@@ -18,7 +18,8 @@ class ErrorRegistry:
       # índice secundario: col → set de filas que tienen errores en esa col (Guardando referencia a la fila)
       self._col_index: dict[int, set[int]] = defaultdict(set)
 
-   def add(self, error: CellError) -> None:
+   def add(self, row : int, col : int, field : str, msg : str, value : Any = None, source : str = 'pydantic') -> None:
+      error = CellError(row,col,field,msg,value,source)
       self._by_row[error.row].append(error)
       self._col_index[error.col].add(error.row)
       

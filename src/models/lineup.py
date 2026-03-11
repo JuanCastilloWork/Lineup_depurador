@@ -1,11 +1,11 @@
-
 from decimal import Decimal,InvalidOperation
-from pydantic import BaseModel, ConfigDict, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator,ValidationInfo
 from pydantic_core import PydanticCustomError
 from enum import Enum
 from datetime import date
 from typing import Any
 import utils
+from constants import TypeEnum
 
 class StatusEnum(str, Enum):
    ANCHORED      = "ANCHORED"
@@ -47,21 +47,6 @@ _VALID_STATUS_OPERATIONS = {
    },
 
 }   
-
-# COAL,CLINKER/CEMENT Y GRAINS, tienen que tener MT_BY_PRODCT,total y tipo de producto cuando zarpa, las otras puede ser el mismo producto
-class TypeEnum(str, Enum):
-   CLINKER_CEMENT  = "CLINKER/CEMENT"
-   COAL            = "COAL" 
-   CRUDE           = "CRUDE"
-   DRY_PRODUCTS    = "DRY PRODUCTS"
-   EDIBLE_OIL      = "EDIBLE OIL"
-   FERTILIZERS     = "FERTILIZERS"
-   GRAINS          = "GRAINS"
-   LIQUID_CHEMS    = "LIQUID/CHEMS"
-   LIVESTOCK       = "LIVESTOCK"
-   OTHERS          = "OTHERS"
-   PROJECT_CARGO   = "PROJECT CARGO"
-   STEEL           = "STEEL"
 
 # El tipo de carga es mas complicado la verdad
 
@@ -111,7 +96,7 @@ class LineUpBaseModel(BaseModel):
    MT_BY_PRODUCT: str | None
    TOTAL_MT: Decimal | None
 
-    # ------------------------------------------------------------------
+   # ------------------------------------------------------------------
    # Field validators
    # ------------------------------------------------------------------
 
@@ -133,7 +118,7 @@ class LineUpBaseModel(BaseModel):
    @classmethod
    def normalize_mt_by_product(cls, v : str | None)->str | None:
       cleaned =  utils.remove_all_spaces(v)
-      return cleaned if cleaned else None
+      return cleaned.replace(',','') if cleaned else None
 
    @field_validator("TOTAL_MT", mode="before")
    @classmethod
@@ -174,15 +159,15 @@ class LineUpBaseModel(BaseModel):
          if doa > etb:
             raise PydanticCustomError(
                 'date_order_violation',
-                'DATE_OF_ARRIVAL ({doa}) no puede ser posterior a ETB ({etb}).',
+                'DATE_OF_ARRIVAL ({DATE_OF_ARRIVAL}) no puede ser posterior a ETB ({ETB}).',
                 {'fields': ['DATE_OF_ARRIVAL', 'ETB'],
                  'values': {'DATE_OF_ARRIVAL': str(doa), 'ETB': str(etb)}}
             )
          if doa == etb and _period_exceeds(doa_p, etb_p):
             raise PydanticCustomError(
                 'date_order_violation',
-                'DATE_OF_ARRIVAL ({doa}) y ETB ({etb}) son el mismo día pero '
-                'DATE_OF_ARRIVAL_PERIOD ({doa_p}) es posterior a ETB_PERIOD ({etb_p}).',
+                'DATE_OF_ARRIVAL ({DATE_OF_ARRIVAL}) y ETB ({ETB}) son el mismo día pero '
+                'DATE_OF_ARRIVAL_PERIOD ({DATE_OF_ARRIVAL_PERIOD}) es posterior a ETB_PERIOD ({ETB_PERIOD}).',
                 {'fields': ['DATE_OF_ARRIVAL_PERIOD', 'ETB_PERIOD'],
                  'values': {'DATE_OF_ARRIVAL': str(doa), 'ETB': str(etb),
                             'DATE_OF_ARRIVAL_PERIOD': doa_p, 'ETB_PERIOD': etb_p}}
@@ -192,15 +177,15 @@ class LineUpBaseModel(BaseModel):
          if doa > etc:
             raise PydanticCustomError(
                'date_order_violation',
-               'DATE_OF_ARRIVAL ({doa}) no puede ser posterior a ETC ({etc}).',
+               'DATE_OF_ARRIVAL ({DATE_OF_ARRIVAL}) no puede ser posterior a ETC ({ETC}).',
                {'fields': ['DATE_OF_ARRIVAL', 'ETC'],
                 'values': {'DATE_OF_ARRIVAL': str(doa), 'ETC': str(etc)}}
             )
          if doa == etc and _period_exceeds(doa_p, etc_p):
             raise PydanticCustomError(
                'date_order_violation',
-               'DATE_OF_ARRIVAL ({doa}) y ETC ({etc}) son el mismo día pero '
-               'DATE_OF_ARRIVAL_PERIOD ({doa_p}) es posterior a ETC_PERIOD ({etc_p}).',
+               'DATE_OF_ARRIVAL ({DATE_OF_ARRIVAL}) y ETC ({ETC}) son el mismo día pero '
+               'DATE_OF_ARRIVAL_PERIOD ({DATE_OF_ARRIVAL_PERIOD}) es posterior a ETC_PERIOD ({ETC_PERIOD}).',
                {'fields': ['DATE_OF_ARRIVAL_PERIOD', 'ETC_PERIOD'],
                 'values': {'DATE_OF_ARRIVAL': str(doa), 'ETC': str(etc),
                              'DATE_OF_ARRIVAL_PERIOD': doa_p, 'ETC_PERIOD': etc_p}}
@@ -211,15 +196,15 @@ class LineUpBaseModel(BaseModel):
          if etb > etc:
             raise PydanticCustomError(
                'date_order_violation',
-               'ETB ({etb}) no puede ser posterior a ETC ({etc}).',
+               'ETB ({ETB}) no puede ser posterior a ETC ({ETC}).',
                {'fields': ['ETB', 'ETC'],
                 'values': {'ETB': str(etb), 'ETC': str(etc)}}
             )
          if etb == etc and _period_exceeds(etb_p, etc_p):
             raise PydanticCustomError(
             'date_order_violation',
-            'ETB ({etb}) y ETC ({etc}) son el mismo día pero '
-            'ETB_PERIOD ({etb_p}) es posterior a ETC_PERIOD ({etc_p}).',
+            'ETB ({ETB}) y ETC ({ETC}) son el mismo día pero '
+            'ETB_PERIOD ({ETB_PERIOD}) es posterior a ETC_PERIOD ({ETC_PERIOD}).',
             {'fields': ['ETB_PERIOD', 'ETC_PERIOD'],
              'values': {'ETB': str(etb), 'ETC': str(etc),
                         'ETB_PERIOD': etb_p, 'ETC_PERIOD': etc_p}}
@@ -233,19 +218,19 @@ class LineUpBaseModel(BaseModel):
        if self.DATE_OF_ARRIVAL is None and self.STATUS not in _STATUS_NO_REQUIRES_ATA:
            raise PydanticCustomError(
                'status_requires_date',
-               "STATUS='{status}' requiere que ATA esté informado.",
+               "STATUS='{STATUS}' requiere que ATA esté informado.",
                {'fields': ['STATUS', 'DATE_OF_ARRIVAL'], 'values': {'STATUS': self.STATUS.value, 'DATE_OF_ARRIVAL': None}}
            )
        if self.STATUS in _STATUS_REQUIRES_ETB and self.ETB is None:
            raise PydanticCustomError(
                'status_requires_date',
-               "STATUS='{status}' requiere que ETB esté informado.",
+               "STATUS='{STATUS}' requiere que ETB esté informado.",
                {'fields': ['STATUS', 'ETB'], 'values': {'STATUS': self.STATUS.value, 'ETB': None}}
            )
        if self.STATUS in _STATUS_REQUIRES_ETC and self.ETC is None:
            raise PydanticCustomError(
                'status_requires_date',
-               "STATUS='{status}' requiere que ETC esté informado.",
+               "STATUS='{STATUS}' requiere que ETC esté informado.",
                {'fields': ['STATUS', 'ETC'], 'values': {'STATUS': self.STATUS.value, 'ETC': None}}
            )
        return self   
@@ -267,12 +252,11 @@ class LineUpBaseModel(BaseModel):
       if doa > today and self.STATUS not in _VALID_FUTURE_STATUSES:
          raise PydanticCustomError(
              'status_date_mismatch',
-             "DATE_OF_ARRIVAL ({doa}) es posterior a hoy ({today}) pero STATUS='{status}'. Barcos futuros solo pueden tener: {valid}.",
+             "DATE_OF_ARRIVAL ({DATE_OF_ARRIVAL}) es posterior a hoy ({today}) con estado {STATUS}. Barcos futuros solo pueden tener: {valid}.",
              {'fields': ['DATE_OF_ARRIVAL', 'STATUS'], 'values': {'DATE_OF_ARRIVAL': str(doa), 'STATUS': self.STATUS.value, 'today': str(today), 'valid': [s.value for s in _VALID_FUTURE_STATUSES]}}
          )
       return self
-   
-   
+      
    @model_validator(mode='after')
    def validate_status_vs_operation(self) -> 'LineUpBaseModel':
        if self.STATUS not in _VALID_STATUS_OPERATIONS:
@@ -282,61 +266,114 @@ class LineUpBaseModel(BaseModel):
        if self.OPERATION not in valid_operations:
            raise PydanticCustomError(
                'invalid_operation_for_status',
-               "STATUS='{status}' tiene una operación inválida '{operation}'. Válidas: {valid}.",
-               {'fields': ['STATUS', 'OPERATION'], 'values': {'STATUS': self.STATUS.value, 'OPERATION': self.OPERATION.value, 'valid': [o.value for o in valid_operations]}}
+               "STATUS='{STATUS}' tiene una operación inválida '{OPERATION}'. Válidas: {valid}.",
+               {'fields': ['STATUS', 'OPERATION'], 'values': {'STATUS': self.STATUS.value, 'OPERATION': self.OPERATION.value, 'valid_operations': [o.value for o in valid_operations]}}
            )
        return self
    
+
+   @model_validator(mode='after')
+   def validate_terminal(self, info: ValidationInfo) -> 'LineUpBaseModel':
+      if self.TERMINAL is None:
+         return self
+      context = info.context or {}
+      available_terminals = context.get('available_terminals')
+      
+      if available_terminals and self.TERMINAL not in available_terminals:
+          raise PydanticCustomError(
+              'invalid_terminal',
+              "TERMINAL '{terminal}' no está en la lista de terminales disponibles: {available}.",
+              {'fields': ['TERMINAL'], 'values': {'terminal': self.TERMINAL, 'available': list(available_terminals)}}
+          )
+      
+      return self   
+
+   
+   @model_validator(mode='after')
+   def validate_products(self, info: ValidationInfo) -> 'LineUpBaseModel':
+      if self.PRODUCT is None:
+         return self
+      
+      context = info.context or {}
+   
+      if self.PRODUCT and not self.TYPE:
+         raise PydanticCustomError(
+             'product_requires_type',
+             "Se informó PRODUCT ({PRODUCT}) pero TYPE es None. TYPE es obligatorio cuando se indica PRODUCT.",
+             {'fields': ['PRODUCT', 'TYPE'], 'values': {'PRODUCT': self.PRODUCT, 'TYPE': None}}
+         )
+   
+      products = self.PRODUCT.split('/')
+      available_products = context.get('available_products', {}).get(self.TYPE, [])
+      for product in products:
+         if available_products and product not in available_products:
+             raise PydanticCustomError(
+                 'invalid_product',
+                  "PRODUCT ({PRODUCT}) no está en la lista de productos disponibles para TYPE ({TYPE}): ({available_products}).",
+                  {'fields': ['PRODUCT', 'TYPE'], 'values': {'PRODUCT': product, 'TYPE': self.TYPE, 'available_products': list(available_products)}}
+             )
+      
+      return self
    
    @model_validator(mode='after')
    def validate_mt_totals(self) -> 'LineUpBaseModel':
-       mt_by_product = self.MT_BY_PRODUCT
-       total_mt      = self.TOTAL_MT
+      mt_by_product = self.MT_BY_PRODUCT
+      total_mt      = self.TOTAL_MT
    
-       if mt_by_product is None and total_mt is None:
-           return self
+      if mt_by_product is None and total_mt is None:
+          return self
    
-       if mt_by_product is None and total_mt is not None:
-           raise PydanticCustomError(
-               'mt_mismatch',
-               'MT_BY_PRODUCT es None pero TOTAL_MT tiene valor ({total_mt}).',
-               {'fields': ['MT_BY_PRODUCT', 'TOTAL_MT'], 'values': {'MT_BY_PRODUCT': None, 'TOTAL_MT': str(total_mt)}}
-           )
-       if mt_by_product is not None and total_mt is None:
-           raise PydanticCustomError(
-               'mt_mismatch',
-               'TOTAL_MT es None pero MT_BY_PRODUCT tiene valor ({mt_by_product}).',
-               {'fields': ['MT_BY_PRODUCT', 'TOTAL_MT'], 'values': {'MT_BY_PRODUCT': mt_by_product, 'TOTAL_MT': None}}
-           )
-       if total_mt < 0 or total_mt > Decimal('300000'):
-           raise PydanticCustomError(
-               'mt_out_of_range',
-               'TOTAL_MT fuera de rango válido: {total_mt}.',
-               {'fields': ['TOTAL_MT'], 'values': {'TOTAL_MT': str(total_mt)}}
-           )
-       parts = mt_by_product.split('/')
-       try:
-           parsed = [Decimal(p.strip()) for p in parts if p.strip()]
-       except Exception:
-           raise PydanticCustomError(
-               'mt_parse_error',
-               "MT_BY_PRODUCT contiene valores no numéricos: '{mt_by_product}'.",
-               {'fields': ['MT_BY_PRODUCT'], 'values': {'MT_BY_PRODUCT': mt_by_product}}
-           )
-       if not parsed:
-           raise PydanticCustomError(
-               'mt_parse_error',
-               'MT_BY_PRODUCT está vacío tras el split.',
-               {'fields': ['MT_BY_PRODUCT'], 'values': {'MT_BY_PRODUCT': mt_by_product}}
-           )
-       computed_sum = sum(parsed)
-       if computed_sum != total_mt:
-           raise PydanticCustomError(
-               'mt_sum_mismatch',
-               'La suma de MT_BY_PRODUCT ({computed_sum}) no coincide con TOTAL_MT ({total_mt}).',
-               {'fields': ['MT_BY_PRODUCT', 'TOTAL_MT'], 'values': {'MT_BY_PRODUCT': mt_by_product, 'TOTAL_MT': str(total_mt), 'computed_sum': str(computed_sum)}}
-           )
-       return self
+      if mt_by_product is None and total_mt is not None:
+          raise PydanticCustomError(
+              'mt_mismatch',
+              'MT_BY_PRODUCT es None pero TOTAL_MT tiene valor ({total_mt}).',
+              {'fields': ['MT_BY_PRODUCT', 'TOTAL_MT'], 'values': {'MT_BY_PRODUCT': None, 'TOTAL_MT': str(total_mt)}}
+          )
+      if mt_by_product is not None and total_mt is None:
+          raise PydanticCustomError(
+              'mt_mismatch',
+              'TOTAL_MT es None pero MT_BY_PRODUCT tiene valor ({mt_by_product}).',
+              {'fields': ['MT_BY_PRODUCT', 'TOTAL_MT'], 'values': {'MT_BY_PRODUCT': mt_by_product, 'TOTAL_MT': None}}
+          )
+      if total_mt < 0 or total_mt > Decimal('300000'):
+          raise PydanticCustomError(
+              'mt_out_of_range',
+              'TOTAL_MT fuera de rango válido: {total_mt}.',
+              {'fields': ['TOTAL_MT'], 'values': {'TOTAL_MT': str(total_mt)}}
+          )
+      parts = mt_by_product.split('/')
+      
+      try:
+          parsed = [Decimal(p.strip()) for p in parts if p.strip()]
+      except Exception:
+          raise PydanticCustomError(
+              'mt_parse_error',
+              "MT_BY_PRODUCT contiene valores no numéricos: '{mt_by_product}'.",
+              {'fields': ['MT_BY_PRODUCT'], 'values': {'MT_BY_PRODUCT': mt_by_product}}
+          )
+      if not parsed:
+          raise PydanticCustomError(
+              'mt_parse_error',
+              'MT_BY_PRODUCT está vacío tras el split.',
+              {'fields': ['MT_BY_PRODUCT'], 'values': {'MT_BY_PRODUCT': mt_by_product}}
+          )
+      computed_sum = sum(parsed)
+      if computed_sum != total_mt:
+          raise PydanticCustomError(
+              'mt_sum_mismatch',
+              'La suma de MT_BY_PRODUCT ({computed_sum}) no coincide con TOTAL_MT ({total_mt}).',
+              {'fields': ['MT_BY_PRODUCT', 'TOTAL_MT'], 'values': {'MT_BY_PRODUCT': mt_by_product, 'TOTAL_MT': str(total_mt), 'computed_sum': str(computed_sum)}}
+          )
+
+      if self.PRODUCT and len(parts)>1:
+         if not len(self.PRODUCT.split('/')) == len(parts):
+            raise PydanticCustomError(
+               'mt_products_mismatch',
+               'No hay la misma canditad de productos ({prod_cantidad}) y cantidades que deberian de tener ({mt_cantidad})',
+               {'fields':['prod_cantidad','mt_cantidad'], 'values':{'prod_cantidad':len(self.PRODUCT), 'mt_cantidad':len(parts)} }
+            )
+      
+      return self
 
    
    def to_client_report(self) -> dict[str, Any]:
@@ -372,7 +409,6 @@ class LineUpBaseModel(BaseModel):
               return "TBC"
           
           def fmt_number(s: str) -> str:
-              s = s.strip()
               try:
                   # Con decimales
                   if "." in s:
@@ -388,8 +424,7 @@ class LineUpBaseModel(BaseModel):
               return " / ".join(fmt_number(p) for p in parts)
           
           return fmt_number(value)
-      
-      
+            
       def fmt(value) -> Any:
           if value is None:
               return "TBC"

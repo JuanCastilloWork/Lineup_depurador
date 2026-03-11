@@ -1,22 +1,16 @@
 
-import config
-import layout
+import constants
+from excel import layout
 from datetime import date
-from enum import Enum
-from os import stat_result
-from tkinter import OUTSIDE
-from openpyxl import Workbook,load_workbook
+from openpyxl import Workbook
 from openpyxl.cell import Cell
 from openpyxl.worksheet.worksheet import Worksheet
-from openpyxl.styles import Font, PatternFill, Alignment, Border, Side,NamedStyle
-from openpyxl.styles.fonts import DEFAULT_FONT
-from copy import copy
-from openpyxl.utils import get_column_letter
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils.units import pixels_to_EMU
 from openpyxl.drawing.image import Image as XLImage
 from PIL import Image as PILImage
 import io
-from results import OfficeResult
+from validations import OfficeResult
 from pathlib import Path
 
 HEADER_BG = 'FFFFFF'
@@ -29,12 +23,10 @@ COL_HEADER_BG = '122649'
 COL_HEADER_FG = 'BFBFBF'
 ROW_ALT_FG = '002060'
 
-
 _thin = Side(style='thin', color = BORDER_COLOR)
 _dashed = Side(style='dashed',color = BORDER_COLOR)
 _cell_border_thin = Border(left=_thin, right=_thin, top=_thin, bottom=_thin)
 _cell_border_dashed = Border(left=_dashed, right=_dashed, top=_dashed, bottom=_dashed)
-
 
 def _apply_border_to_merged_range(ws: Worksheet, cell_range: str, border: Border):
    """Aplica border a todas las celdas de un rango mergeado."""
@@ -163,10 +155,6 @@ class LineUpExcelReport:
       offset_x = int((total_width_px - new_w) / 2)
       offset_y = PADDING_PX
 
-      # Anclar en B2 con los offsets calculados
-      from openpyxl.drawing.spreadsheet_drawing import AnchorMarker, TwoCellAnchor
-      from openpyxl.utils import column_index_from_string
-
       xl_img.anchor = 'B2'
       xl_img.anchor = _make_anchor(ws, 'B', 2, offset_x, offset_y, new_w, new_h)
       ws.add_image(xl_img)
@@ -208,7 +196,7 @@ class LineUpExcelReport:
       cell.font      = Font(name="Calibri", size=11)
       cell.alignment = Alignment(horizontal="center", vertical="center")
 
-   def create_report(self, output_path : Path = Path('daily_lineup.xlsx')):
+   def create_report(self, output_path : Path = Path('daily_lineup.xlsx'), header_row : int = constants.HEADER_ROW):
 
       wb = Workbook()
       wb.remove(wb.active)
@@ -219,14 +207,14 @@ class LineUpExcelReport:
             self._change_column_widths(sheet)
             self._write_header_block(sheet,port.expected_name,Path('./assets/company_logo.png'))
             sheet.sheet_view.showGridLines = False
-         
-            port_layout = layout.ReportLayoutA
+
+            port_layout = constants.REPORT_LAYOUTS.get(port.expected_name,layout.LineUpReportLayout)
             for member in port_layout:
-               cell = sheet.cell(config.HEADER_ROW,member.col)
+               cell = sheet.cell(header_row,member.col)
                cell.value = member.label
                _style_col_header(cell)
 
-            for i,row in enumerate(port.rows, start=config.HEADER_ROW+1):
+            for i,row in enumerate(port.rows, start=header_row+1):
                deep_blue = row.get('AGENCY') == 'DEEP BLUE'
                for member in port_layout:
                   cell = sheet.cell(i,member.col)

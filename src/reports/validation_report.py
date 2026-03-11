@@ -1,12 +1,10 @@
 # report.py
 from __future__ import annotations
-import base64
 from datetime import datetime,date
 from pathlib import Path
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-from results import DepurationResult  # tus clases
-
+from validations import DepurationResult 
 
 def _build_context(result: DepurationResult) -> dict:
     """
@@ -83,7 +81,7 @@ def _build_context(result: DepurationResult) -> dict:
     }
 
 
-def render_report(
+def render_validation_report(
     result:        DepurationResult,
     template_path: Path,
     output_path:   Path,
@@ -108,18 +106,7 @@ def render_report(
 
     ctx = _build_context(result)
 
-    if embed_fonts:
-        assert fonts_dir is not None, "fonts_dir requerido para embed_fonts=True"
-        ctx["font_regular_b64"] = _font_b64(fonts_dir / "LiberationMono-Regular.ttf")
-        ctx["font_bold_b64"]    = _font_b64(fonts_dir / "LiberationMono-Bold.ttf")
-
     html = template.render(**ctx)
     output_path.write_text(html, encoding="utf-8")
     return output_path
-
-
-def _font_b64(path: Path) -> str:
-    return base64.b64encode(path.read_bytes()).decode()
-
-
 

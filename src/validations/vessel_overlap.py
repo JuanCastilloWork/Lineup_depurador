@@ -1,9 +1,8 @@
-
 from dataclasses import dataclass
 from datetime import date
 from collections import defaultdict
 from typing import TYPE_CHECKING
-from models import LineUpBaseModel, PeriodEnum
+from models.lineup import LineUpBaseModel, PeriodEnum
 import sys
 
 @dataclass

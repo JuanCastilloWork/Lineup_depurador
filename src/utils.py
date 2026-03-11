@@ -11,8 +11,7 @@ def remove_multiple_white_spaces(value :  Optional[str])->Optional[str]:
 def remove_all_spaces(value : Optional[str])->Optional[str]:
    if value is None:
       return value
-   return re.sub(r'\s+','',str(value)).replace(',','')
-   
+   return re.sub(r'\s+','',str(value))
 
 def parse_date(value: str | None | int | date | datetime) -> date | None:
    """Intenta parsear una fecha desde string o datetime de openpyxl."""
