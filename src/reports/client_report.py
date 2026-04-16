@@ -1,7 +1,7 @@
 
-import constants
-from excel import layout
 from datetime import date
+from decimal import Decimal
+from typing import TYPE_CHECKING
 from openpyxl import Workbook
 from openpyxl.cell import Cell
 from openpyxl.worksheet.worksheet import Worksheet
@@ -10,8 +10,11 @@ from openpyxl.utils.units import pixels_to_EMU
 from openpyxl.drawing.image import Image as XLImage
 from PIL import Image as PILImage
 import io
-from validations import OfficeResult
 from pathlib import Path
+from excel import layots
+from processors.final_processor import PortBundle
+import validations
+import pandas as pd
 
 HEADER_BG = 'FFFFFF'
 HEADER_FG = '000000'
@@ -22,6 +25,8 @@ BORDER_COLOR = '000000'
 COL_HEADER_BG = '122649'
 COL_HEADER_FG = 'BFBFBF'
 ROW_ALT_FG = '002060'
+
+ERROR_FILL_COLOR = 'FF4C4C'   # rojo para celdas con error
 
 _thin = Side(style='thin', color = BORDER_COLOR)
 _dashed = Side(style='dashed',color = BORDER_COLOR)
@@ -43,13 +48,17 @@ def _style_col_header(cell):
    cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=False)
    cell.border    = _cell_border_dashed
 
-def _style_data_cell(cell, alternate: bool = False):
-    fg = ROW_ALT_FG if alternate else "000000"
-    cell.font      = Font(name="Calibri", size=9, color=fg, bold= alternate)
-    cell.fill      = PatternFill("solid", start_color='FFFFFF')
-    cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=False)
-    cell.border    = _cell_border_thin
 
+def _style_data_cell(cell: Cell, alternate: bool = False, has_error: bool = False):
+    fg = ROW_ALT_FG if alternate else "000000"
+    cell.font      = Font(name="Calibri", size=9, color=fg, bold=alternate)
+    cell.fill      = (
+        PatternFill("solid", start_color=ERROR_FILL_COLOR)
+        if has_error
+        else PatternFill("solid", start_color='FFFFFF')
+    )
+    cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
+    cell.border    = _cell_border_thin
 
 def _make_anchor(ws, col_letter, row_num, offset_x_px, offset_y_px, img_w_px, img_h_px):
    """Crea un OneCellAnchor con offsets en EMU para centrar la imagen."""
@@ -75,17 +84,112 @@ class LineUpExcelReport:
    
    HEADER_ROW = 12
    
-   def __init__(self , results : list[OfficeResult]) -> None:
-      self._results = results
-      self._current_cod = 'DB-GOP - FT - 16 / 3'
-      self._current_cod_date = date(2023,9,8)
+   def __init__(self ,
+      bundle : dict[str,PortBundle],      
+      company: str,
+      lineup_date: date,
+                ) -> None:
 
+      self._bundle = bundle
+      self._company             = company.upper()
+      self._lineup_date         = lineup_date
+      self._current_cod         = 'DB-GOP - FT - 16 / 3'
+      self._current_cod_date    = date(2023, 9, 8)
+
+
+   def _build_error_index(
+        self, report: validations.ValidationReport | None
+    ) -> dict[str, set[int]]:
+      """
+      Devuelve {attr_name: {row_indices con error}}.
+      row_index en CellError corresponde al índice posicional del DataFrame (0-based).
+      """
+      if report is None:
+          return {}
+ 
+      index: dict[str, set[int]] = {}
+      for error in report.all_errors:
+         index.setdefault(error.column, set()).add(error.row_index)
+      return index
+
+   @staticmethod
+   def _layout_attr_map(layout_cls: type[layots.LineUpBaseLayout]) -> dict[str, object]:
+      """
+      Devuelve {attr_name: ColDef} para todos los ColDef del layout.
+      Ejemplo: {"DATE_OF_ARRIVAL": ColDef(col=3, name="DATE OF ARRIVAL", ...)}
+      """
+      result = {}
+      for member in layout_cls:          # itera miembros del Enum
+          val = member.value             # <-- el ColDef real
+          if hasattr(val, 'col') and hasattr(val, 'name'):
+              result[member.name] = val  # member.name = "DATE_OF_ARRIVAL", val.name = "DATE OF ARRIVAL"
+      return result
+      
+   def _write_data_columns(
+      self,
+      ws: Worksheet,
+      df: pd.DataFrame,
+      layout_cls: type[layots.LineUpBaseLayout],
+      error_index: dict[str, set[int]],
+      header_row: int,
+      agency_col_name: str = "AGENCY",   # nombre del ColDef attr para AGENCY
+    ):
+      """
+      Itera por ColDef (columna a columna).  Para cada ColDef busca la Serie
+      del DataFrame cuyo nombre de columna coincide con ColDef.name y escribe
+      todas las celdas de esa columna de una vez.
+      """
+      attr_map = self._layout_attr_map(layout_cls)
+ 
+      # Precalculamos filas que pertenecen a la compañía (deep_blue)
+      # Buscamos el ColDef cuyo attr_name sea AGENCY
+      agency_col_def = attr_map.get(agency_col_name)
+      deep_blue_rows: set[int] = set()
+      if agency_col_def is not None and agency_col_name in df.columns:
+         deep_blue_rows = set(
+            df.index[df[agency_col_def.name] == self._company].tolist()
+         )
+ 
+      for attr_name, col_def in attr_map.items():
+         # La serie del DataFrame se identifica por col_def.name
+         if attr_name not in df.columns:
+            continue
+ 
+         series: pd.Series = df[attr_name]
+         error_rows = error_index.get(attr_name, set())
+ 
+         for positional_idx, value in enumerate(series):
+            excel_row = header_row + 1 + positional_idx
+            cell = ws.cell(row=excel_row, column=col_def.col)
+ 
+            has_error  = positional_idx in error_rows
+            is_alt     = positional_idx in deep_blue_rows
+ 
+            # Valor
+            cell.value = value
+ 
+            # Estilo base
+            _style_data_cell(cell, alternate=is_alt, has_error=has_error)
+ 
+            # Alineaciones especiales por columna
+            if attr_name == 'PIER':
+               cell.alignment = Alignment(horizontal='center')
+            elif attr_name in ('MT_BY_PRODUCT', 'TOTAL_MT'):
+               cell.alignment = Alignment(horizontal='right')
+               
+               if isinstance(value, Decimal):
+                  if value % 1 == Decimal('0'):
+                     cell.number_format = "#,##0"
+                  else:
+                     cell.number_format = "#,##0.##"
+               
 
    def _cm_to_charunit_aprox(self, value : float):
       return value
 
 
-   def _change_column_widths(self, ws : Worksheet):
+   def _change_column_widths(self, ws : Worksheet, layout_cls : type[layots.LineUpBaseLayout]):
+      
       ws.column_dimensions['A'].width = self._cm_to_charunit_aprox(1.75)
       ws.column_dimensions['B'].width = self._cm_to_charunit_aprox(22.67)
       ws.column_dimensions['C'].width = self._cm_to_charunit_aprox(15)
@@ -103,12 +207,17 @@ class LineUpExcelReport:
       ws.column_dimensions['O'].width = self._cm_to_charunit_aprox(34)
       ws.column_dimensions['P'].width = self._cm_to_charunit_aprox(16)
       ws.column_dimensions['Q'].width = self._cm_to_charunit_aprox(32)
-
-   def _write_header_block(self, ws : Worksheet, port : str, logo_path : Path ):
+      if layout_cls == layots.LineUpReportVariantLayout:
+         ws.column_dimensions['R'].width = 24
+   def _write_header_block(self, ws : Worksheet,layout_cls : type[layots.LineUpBaseLayout], port : str, logo_path : Path ):
       ws.merge_cells(f'B2:D7')
       ws.merge_cells(f'E2:M7')
       ws.merge_cells(f'N2:O7')
-      ws.merge_cells(f'P2:Q7')
+      if layout_cls == layots.LineUpReportVariantLayout:
+         
+         ws.merge_cells(f'P2:R7')
+      else:
+         ws.merge_cells(f'P2:Q7')
 
       # Logo va en la B2:D7
       PADDING_PX = 6       
@@ -182,7 +291,10 @@ class LineUpExcelReport:
       cod_cell.alignment = Alignment(horizontal="center", vertical="center")
 
       _apply_border_to_merged_range(ws, 'N2:O7', _cell_border_thin)
-      _apply_border_to_merged_range(ws, 'P2:Q7', _cell_border_thin)
+      if layout_cls == layots.LineUpReportVariantLayout:
+         _apply_border_to_merged_range(ws, 'P2:R7', _cell_border_thin)
+      else:
+         _apply_border_to_merged_range(ws, 'P2:Q7', _cell_border_thin)
       
       # Supongo que pongamos la fecha como header XD
       # Falta centrar la fecha, y a la b10 ponerla en negrilla, y que este en size 11 vs 12 el valor
@@ -192,43 +304,41 @@ class LineUpExcelReport:
       cell.font      = Font(name="Calibri", bold=True, size=12)
       cell.alignment = Alignment(horizontal="center", vertical="center")
       cell = ws['C10']
-      cell.value = date.today().strftime('%d-%m-%Y')      
+      cell.value = self._lineup_date.strftime('%d-%m-%Y')      
       cell.font      = Font(name="Calibri", size=11)
       cell.alignment = Alignment(horizontal="center", vertical="center")
 
-   def create_report(self, output_path : Path = Path('daily_lineup.xlsx'), header_row : int = constants.HEADER_ROW):
+   def create_report(self, output_path : Path = Path('daily_lineup.xlsx'), header_row : int = 12, logo_path : Path = Path('./assets/company_logo.png')):
 
       wb = Workbook()
       wb.remove(wb.active)
-
-      for office in self._results:
-         for port in office.sheets:
-            sheet : Worksheet = wb.create_sheet(port.expected_name)
-            self._change_column_widths(sheet)
-            self._write_header_block(sheet,port.expected_name,Path('./assets/company_logo.png'))
-            sheet.sheet_view.showGridLines = False
-
-            port_layout = constants.REPORT_LAYOUTS.get(port.expected_name,layout.LineUpReportLayout)
-            for member in port_layout:
-               cell = sheet.cell(header_row,member.col)
-               cell.value = member.label
-               _style_col_header(cell)
-
-            for i,row in enumerate(port.rows, start=header_row+1):
-               deep_blue = row.get('AGENCY') == 'DEEP BLUE'
-               for member in port_layout:
-                  cell = sheet.cell(i,member.col)
-                  cell.value = row[member.name]
-                  cell.border = _cell_border_dashed
-                  if deep_blue:
-                     cell.font = Font(name = 'Calibri',bold = True, color=ROW_ALT_FG)
-                  
-                  if member.name == 'PIER':
-                     cell.alignment = Alignment(horizontal='center')
-                  elif member.name in ['MT_BY_PRODUCT','TOTAL_MT']:
-                     cell.alignment = Alignment(horizontal='right')
-                  
+ 
+      for port_name, port_bundle in self._bundle.items():
+         layout_cls  = port_bundle.layout
+         report      = port_bundle.report
+         error_index = self._build_error_index(report)
+         sheet_name = port_name.upper().replace('_',' ')   
+         sheet: Worksheet = wb.create_sheet(sheet_name)
+         sheet.sheet_view.showGridLines = False
+ 
+         self._change_column_widths(sheet, layout_cls)
+         self._write_header_block(sheet, layout_cls, port_name, logo_path)
+ 
+         # Headers de columna
+         attr_map = self._layout_attr_map(layout_cls)
+         for col_def in attr_map.values():
+             cell = sheet.cell(header_row, col_def.col)
+             cell.value = col_def.name      # label visible en Excel = ColDef.name
+             _style_col_header(cell)
+ 
+         # Datos (iteración por columna)
+         self._write_data_columns(
+             ws=sheet,
+             df=port_bundle.df,
+             layout_cls=layout_cls,
+             error_index=error_index,
+             header_row=header_row,
+         )
+ 
       wb.save(output_path)
-
       return output_path
-

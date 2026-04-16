@@ -3,3 +3,4 @@ rapidfuzz
 openpyxl
 Jinja2
 pillow
+pandas

@@ -1,0 +1,56 @@
+title = "Line Up configuracion para la validacion"
+maintainer = 'Persona ejempleo'
+area = 'Comercial'
+header_row = 12 # Donde se encuentra el header en lo archivos? la posicion en excel (1-index)
+check_headers = false # Para verificar los headers si corresponden con lo mapeado en los layouts
+additional_data_path = './data/tables.xlsx' # Donde se encuentra el archivo de excel con los datos de validacion adicionales
+add_summary = true
+template_path = './templates/validation.html.j2'
+assets_dir = './templates/assets'
+output_path = './output/LINEUP_VALIDATION.html'
+version = 0.5
+
+[company]
+name = 'agencia ejemplo' # Si se encuentra la compañia en alguna de las columnas (ya sea shipowner, charterer, o agency), va a resaltar la fila
+color = '#122649' # Color de la compañia (controla el color que se va a resaltar en el archivo de excel)
+
+[office_ports] # Oficina y puertos encargados a la oficina 
+buenaventura = ["buenaventura"]
+santa_marta = ["santa_marta","puerto_brisa"]
+tolu = ["tolu","coveñas"]
+barranquilla = ["barranquilla"]
+cartagena = ["cartagena"]
+
+[layouts] # si no se pone algo se usa default, alternativas es default/variant
+"coveñas" = "variant"
+barranquilla = "default"
+
+[matching]
+min_score = 80 # Controla cosas como el matcheo del header, minimo matcheo para las hojas, archivos, y cosas no dependientes de la depuracion
+
+[company_matching] # Dependiendo del valor, ejecuta las validaciones usando rapidfuzz
+check_charterer = true
+check_owner = false
+check_agency = true
+strategy = 'global'
+
+[company_matching.scores] # Scores minimo para encontrar candidatos
+partial_ratio = 70
+simple_ratio = 70
+token_set_ratio = 90
+
+[port_matching]
+enabled = true
+
+[port_matching.scores]
+partial_ratio = 85
+simple_ratio = 80
+token_set_ratio = 90
+
+[vessel_matching]
+enabled = true
+
+[vessel_matching.scores]
+partial_ratio = 85
+simple_ratio = 80
+token_set_ratio = 90

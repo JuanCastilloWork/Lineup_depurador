@@ -164,3 +164,4 @@ storage/
 data/
 output/
 config.ini
+config.toml

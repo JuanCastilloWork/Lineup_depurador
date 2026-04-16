@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>LineUp Validación</title>
+  <link rel="stylesheet" href="assets/styles.css">
+  <script src ="assets/main.js"> </script>
+</head>
+<body>
+
+  <header>
+    <div class="header-left">
+      <h1>Validación LineUp</h1>
+      <div class="meta-info">
+        <div class="meta-item">
+          <span class="meta-label">Área</span>
+          <span>{{area.capitalize()}}</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Encargado</span>
+          <span>{{maintainer.title()}}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="header-right">
+      <div class="date-display">
+        <strong>{{generated_at}}</strong>
+      </div>
+      <img src="assets/company_logo.png" alt="Company Logo" class="company-logo">
+    </div>
+  </header>
+
+  <section class="navigation">
+    
+    <nav class="section-nav" aria-label="Puertos">
+      <a href="#resumen" class="active">Resumen general</a>
+      {% for port in ports%}
+        <a href="#{{port.lower()}}">{{port.capitalize()}}</a>
+      {% endfor %}
+      
+    </nav>
+
+  <div style="margin:10px 0;">
+    <label>
+      <input type="checkbox" id="toggle-warnings" checked>
+      Mostrar warnings
+    </label>
+  </div>
+    
+    
+  </section>
+
+  
+
+  <main>
+  <section id="resumen"  aria-labelledby="titulo-resumen">
+    <h2 class="section-title" id="titulo-resumen">Resumen general</h2>
+    <div class="kpi-grid">
+      
+      <div class="kpi-card">
+        <div class="kpi-card-top">
+          <span class="kpi-card-lbl">Total Movimientos</span>
+          <span class="kpi-card-pill" style="background:#EBF2FA; color:#122649;">{{total_rows - total_row_errors}} validos</span>
+        </div>
+        <p class="kpi-card-num" style="color:#122649;">{{total_rows}}</p>
+      </div>      
+    
+      <div class="kpi-card">
+        <div class="kpi-card-top">
+          <span class="kpi-card-lbl">Errores</span>
+          <span class="kpi-card-pill" style="background:#FFE3E3; color:#962D2D;">x̄ = {{(errors/total_row_errors) | round(1)}}</span>
+        </div>
+        <p class="kpi-card-num" style="color:#962D2D;">{{errors}}</p>
+      </div>    
+      <div class="kpi-card">
+        <div class="kpi-card-top">
+          <span class="kpi-card-lbl">Advertencias</span>
+          <span class="kpi-card-pill" style="background:#FAEEDA; color:#633806;">x̄ = {{(warnings/total_row_warnings) | round(1)}}</span>
+        </div>
+        <p class="kpi-card-num" style="color:#854F0B;">{{warnings}}</p>
+      </div>    
+      <div class="kpi-card">
+        <div class="kpi-card-top">
+          <span class="kpi-card-lbl">Matcheo Puertos</span>
+          <span class="kpi-card-pill" style="background:#E6F1FB; color:#0C447C;">{{ ((ports | length) / total_ports * 100) | round(0) }}%</span>
+        </div>
+        <p class="kpi-card-num" style="color:#185FA5">{{total_ports - (ports | length) }} no se usaron</p>
+      </div>    
+    </div>
+
+    
+  </section>
+
+  <div class="charts-row">
+    <article class="card" aria-labelledby="titulo-dist">
+      <h3 id="titulo-dist-errors">Distribución de errores y warnings por tipo</h3>
+        <div class="hbar-list">
+        
+        {% for label, count in errors_by_type %}
+          
+          {% set pct = (count / errors * 100) | round(0) | int %}
+          {% set ns = namespace(color="#F0997B") %}
+          {% if pct >= 60 %}{% set ns.color = "#A32D2D" %}
+          {% elif pct >= 30 %}{% set ns.color = "#D85A30" %}
+          {% endif %}
+          <div class="hbar-row">
+            <div class="hbar-meta">
+              <span class="hbar-name">{{ label }}</span>
+              <div class="hbar-vals">
+                <span class="hbar-count">{{ count }}</span>
+                <span class="hbar-pct">{{ pct }}%</span>
+              </div>
+            </div>
+            <div class="hbar-track">
+              <div class="hbar-fill" style="width:{{ pct }}%; background:{{ ns.color }};"></div>
+            </div>
+          </div>             
+        {% endfor %}  
+
+
+        {% if warnings_by_type %}
+        <div style="border-top:1px dashed #e0ddd5; margin:8px 0;"></div>
+          {% for label, count in warnings_by_type %}
+            {% set pct = (count / warnings * 100) | round(0) | int %}
+            {% set ns = namespace(color="#85B7EB") %}
+            {% if pct >= 60 %}{% set ns.color = "#185FA5" %}
+            {% elif pct >= 30 %}{% set ns.color = "#378ADD" %}
+            {% endif %}            
+
+            <div class="hbar-row">
+              <div class="hbar-meta">
+                <span class="hbar-name" style="color:#7A5C1E;">{{ label }}</span>
+                <div class="hbar-vals">
+                  <span class="hbar-count" style="color:#7A5C1E;">{{ count }}</span>
+                  <span class="hbar-pct">{{ pct }}%</span>
+                </div>
+              </div>
+              <div class="hbar-track">
+                <div class="hbar-fill" style="width:{{ pct }}%; background:{{ ns.color }};"></div>
+              </div>
+            </div>
+          {% endfor %}
+        {% endif %}        
+
+      </div>
+
+    </article>
+
+    
+    <article class="card" aria-labelledby="titulo-puertos">
+      <h3 id="titulo-puertos">Errores por puerto</h3>
+    
+      {% set port_colors = ["#3a7bd5", "#4B79A1", "#5C9EAD", "#2E8B57", "#6A89CC", "#778CA3", "#005F73", "#94D2BD", "#0A9396", "#2D5F7C", "#8395A7", "#487EB0"] %}      
+      {% set ns = namespace(stop=0) %}
+      {% set total_port_errors = errors_by_port.values() | sum %}
+    
+      <div class="donut-wrap">
+        <div class="donut" style="background: conic-gradient(
+          {% for port, count in errors_by_port.items() %}
+            {% set pct = (count / total_port_errors * 100) | round(1) %}
+            {{ port_colors[loop.index0 % port_colors|length] }} {{ ns.stop }}% {{ ns.stop + pct }}%
+            {% set ns.stop = ns.stop + pct %}
+            {% if not loop.last %},{% endif %}
+          {% endfor %}
+        );"></div>
+        <div class="donut-hole"></div>
+        <div class="donut-center">
+          <span class="donut-center-num">{{ total_port_errors }}</span>
+          <span class="donut-center-lbl">errores</span>
+        </div>
+      </div>
+    
+      <div class="donut-legend">
+        {% for port, count in errors_by_port.items() %}
+          {% set pct = (count / total_port_errors * 100) | round(0) | int %}
+          <div class="donut-legend-row">
+            <span class="donut-legend-dot" style="background:{{ port_colors[loop.index0 % port_colors|length] }};"></span>
+            <span class="donut-legend-name">{{ port.capitalize() }}</span>
+            <span class="donut-legend-val">{{ count }}</span>
+            <span class="donut-legend-pct">{{ pct }}%</span>
+          </div>
+        {% endfor %}
+      </div>
+    
+    </article>  
+      
+  </div>
+
+
+
+  
+  {% set has_companies = match_report.companies | length > 0 %}
+  {% set has_ports     = match_report.ports     | length > 0 %}
+  {% set has_vessels   = match_report.vessels   | length > 0 %}
+  
+  {% if has_companies or has_ports or has_vessels %}
+  <section id="matcheo" aria-labelledby="titulo-matcheo">
+    <h2 class="section-title" id="titulo-matcheo">Sugerencias de matcheo</h2>
+  
+    <nav class="match-tabs" aria-label="Tipo de matcheo">
+      {% if has_companies %}
+        <button class="match-tab match-tab--active" 
+                onclick="switchMatchTab('match-companies', this)"
+                aria-controls="match-companies">
+          Compañías
+          <span class="match-tab__badge">{{ match_report.companies | length }}</span>
+        </button>
+      {% endif %}
+      {% if has_ports %}
+        <button class="match-tab {% if not has_companies %}match-tab--active{% endif %}"
+                onclick="switchMatchTab('match-ports', this)"
+                aria-controls="match-ports">
+          Puertos
+          <span class="match-tab__badge">{{ match_report.ports | length }}</span>
+        </button>
+      {% endif %}
+      {% if has_vessels %}
+        <button class="match-tab {% if not has_companies and not has_ports %}match-tab--active{% endif %}"
+                onclick="switchMatchTab('match-vessels', this)"
+                aria-controls="match-vessels">
+          Barcos
+          <span class="match-tab__badge">{{ match_report.vessels | length }}</span>
+        </button>
+      {% endif %}
+    </nav>
+  
+    {# ── COMPANIES ─────────────────────────────────────────────────────── #}
+    {% if has_companies %}
+    <div id="match-companies" class="match-grid">
+      {% for item in match_report.companies %}
+      <div class="match-card">
+  
+        <div class="match-card__head">
+          <div class="match-card__head-top">
+            <span class="match-original">{{ item.original }}</span>
+            <span class="match-role-badge match-role-badge--{{ item.searched_as }}">
+              {% if item.searched_as == 'shipowners' %}Shipowner
+              {% elif item.searched_as == 'charterers' %}Charterer
+              {% elif item.searched_as == 'agencies' %}Agency
+              {% else %}{{ item.searched_as }}{% endif %}
+            </span>
+          </div>
+          <div class="match-port-pills">
+            {% for port in item.ports %}
+              <span class="match-port-pill">{{ port }}</span>
+            {% endfor %}
+          </div>
+        </div>
+  
+        <div class="match-card__body">
+          {% for candidate, roles in item.suggestions.items() %}
+          <div class="match-co-row">
+            <div class="match-co-namebar">
+              <span class="match-co-name">{{ candidate }}</span>
+            </div>
+            <div class="match-co-roles">
+              {% if roles.is_shipowner %}
+                <span class="match-co-tag match-co-tag--owner">Shipowner</span>
+              {% endif %}
+              {% if roles.is_charterer %}
+                <span class="match-co-tag match-co-tag--charterer">Charterer</span>
+              {% endif %}
+              {% if roles.is_agency %}
+                <span class="match-co-tag match-co-tag--agency">Agency</span>
+              {% endif %}
+              {% if not roles.is_shipowner and not roles.is_charterer and not roles.is_agency %}
+                <span class="match-co-tag match-co-tag--none">sin rol</span>
+              {% endif %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+  
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  
+    {# ── PORTS ─────────────────────────────────────────────────────────── #}
+    {% if has_ports %}
+    <div id="match-ports" class="match-grid {% if has_companies %}match-grid--hidden{% endif %}">
+      {% for item in match_report.ports %}
+      <div class="match-card">
+  
+        <div class="match-card__head">
+          <div class="match-card__head-top">
+            <span class="match-original">{{ item.original }}</span>
+          </div>
+          <div class="match-port-pills">
+            {% for port in item.ports %}
+              <span class="match-port-pill">{{ port }}</span>
+            {% endfor %}
+          </div>
+        </div>
+  
+        <div class="match-card__body">
+          {% for name, score in item.suggestions %}
+            {% set score_class = 's-hi' if score >= 90 else ('s-md' if score >= 80 else 's-lo') %}
+          <div class="match-sug-row">
+            <span class="match-arrow">→</span>
+            <span class="match-sug-name">{{ name }}</span>
+            <span class="match-score match-score--{{ score_class }}">{{ score }}</span>
+          </div>
+          {% endfor %}
+        </div>
+  
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  
+    {# ── VESSELS ───────────────────────────────────────────────────────── #}
+    {% if has_vessels %}
+    <div id="match-vessels" class="match-grid {% if has_companies or has_ports %}match-grid--hidden{% endif %}">
+      {% for item in match_report.vessels %}
+      <div class="match-card">
+  
+        <div class="match-card__head">
+          <div class="match-card__head-top">
+            <span class="match-original">{{ item.original }}</span>
+          </div>
+          <div class="match-port-pills">
+            {% for port in item.ports %}
+              <span class="match-port-pill">{{ port }}</span>
+            {% endfor %}
+          </div>
+        </div>
+  
+        <div class="match-card__body">
+          {% for name, score in item.suggestions %}
+            {% set score_class = 's-hi' if score >= 90 else ('s-md' if score >= 80 else 's-lo') %}
+          <div class="match-sug-row">
+            <span class="match-arrow">→</span>
+            <span class="match-sug-name">{{ name }}</span>
+            <span class="match-score match-score--{{ score_class }}">{{ score }}</span>
+          </div>
+          {% endfor %}
+        </div>
+  
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  
+  </section>
+  {% endif %}
+  
+
+
+  {% for port in ports %}
+    {% set port_lower = port.lower() %}
+    {% set vessel_report = vessel_report_by_port[port] %}
+    <section id="{{port_lower}}" aria-labelledby="titulo-{{port_lower}}">
+      <h2 class="section-title" id="titulo-{{port_lower}}">Puerto de {{port.title()}}</h2>
+      <div class="vessel-errors">
+        {% for vessel, rows in vessel_report.items()%}
+          {% for row_index, issues in rows.items() %}
+            {% set errors = issues.errors %}
+            {% set warnings = issues.warnings if show_warnings else [] %}
+            {% set total_errors = errors | length %}
+            {% set total_warnings = warnings | length %}
+            {% if total_errors > 0 or total_warnings > 0 %}
+
+            <div class="error-card">
+            <div class="card-header" 
+                 style="{% if total_errors == 0 %}background:#334E68;{% endif %}">
+                
+                <div class="vessel-info">
+                    <span class="vessel-name">{{ vessel }}</span>
+                    <span class="row-index">Excel Row: {{ row_index + header_row+1}}</span>
+                </div>
+
+                {% if total_errors > 0 %}
+                  <span class="badge badge-critical">
+                    {{ total_errors }} Error{{ 'es' if total_errors > 1 else '' }}
+                  </span>
+                {% elif total_warnings > 0 %}
+                  <span class="badge badge-warning">
+                    {{ total_warnings }} Warning{{ 's' if total_warnings > 1 else '' }}
+                  </span>
+                {% endif %}
+            </div>
+
+            <table class="error-list-table">
+                <thead>
+                    <tr>
+                        <th>Campo</th>
+                        <th>Valor</th>
+                        <th>Motivo</th>
+                    </tr>
+                </thead>
+                <tbody>
+
+                    {# ERRORES #}
+                    {% for e in errors %}
+                    <tr>
+                        <td><span class="col-name">{{ e.column }}</span></td>
+                        <td><span class="val-bad">{{ e.value }}</span></td>
+                        <td class="reason-text">{{ e.reason }}</td>
+                    </tr>
+                    {% endfor %}
+
+                    {# WARNINGS (opcionales) #}
+                    {% for w in warnings %}
+                    <tr class="warning-row" style="background:#fffbea;">
+                        <td><span class="col-name">{{ w.column }}</span></td>
+                        <td>{{ w.value }}</td>
+                        <td class="reason-text">{{ w.reason }}</td>
+                    </tr>
+                    {% endfor %}
+
+                </tbody>
+            </table>
+            </div>
+
+
+            {% endif %}
+            
+            
+          {% endfor %}   
+        
+        {% endfor %}
+        
+      </div>
+    </section>  
+  
+  {% endfor %}  
+
+  
+  </main>
+
+</body>
+</html>

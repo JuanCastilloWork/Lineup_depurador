@@ -2,7 +2,8 @@ from dataclasses import dataclass
 from datetime import date
 from collections import defaultdict
 from typing import TYPE_CHECKING
-from models.lineup import LineUpBaseModel, PeriodEnum
+#from models.lineup import LineUpBaseModel, PeriodEnum
+from enums import DatePeriod
 import sys
 
 @dataclass
@@ -12,30 +13,30 @@ class VesselInterval:
    start:    int          # half-day index (inclusivo)
    end:      int          # half-day index (inclusivo)
    doa:      date | None
-   doa_p:    PeriodEnum | None
+   doa_p:    DatePeriod | None
    etc:      date | None
-   etc_p:    PeriodEnum | None
+   etc_p:    DatePeriod | None
    sheet : str
 
 def _to_half_day(d: date) -> int:
    """Convierte una fecha a su índice base (× 2)."""
    return d.toordinal() * 2
 
-def _start_half(d: date | None, p: PeriodEnum | None) -> int | None:
+def _start_half(d: date | None, p: DatePeriod | None) -> int | None:
    if d is None:
        return None
    base = _to_half_day(d)
    # conservador: None → AM (0), así ocupa desde el inicio del día
-   return base + (1 if p == PeriodEnum.PM else 0)
+   return base + (1 if p == DatePeriod.PM else 0)
 
-def _end_half(d: date | None, p: PeriodEnum | None) -> int :
+def _end_half(d: date | None, p: DatePeriod | None) -> int :
    if d is None:
        return sys.maxsize
    base = _to_half_day(d)
    # conservador: None → PM (1), así ocupa hasta el final del día
-   return base + (0 if p == PeriodEnum.AM else 1)
+   return base + (0 if p == DatePeriod.AM else 1)
 
-def build_interval(row: int, model: LineUpBaseModel, sheet : str) -> VesselInterval | None:
+def build_interval(row: int, model, sheet : str) -> VesselInterval | None:
    """
    Construye el intervalo DOA → ETC.
    Retorna None si no hay suficientes fechas para definirlo.
@@ -68,8 +69,8 @@ class OverlapConflict:
    row_b:    int
    interval_a: tuple[int, int]
    interval_b: tuple[int, int]
-   row_a_data : dict[str, date | None | PeriodEnum]
-   row_b_data : dict[str, date | None | PeriodEnum]
+   row_a_data : dict[str, date | None | DatePeriod]
+   row_b_data : dict[str, date | None | DatePeriod]
    sheet_a : str
    sheet_b : str
 
@@ -89,7 +90,7 @@ class OverlapChecker:
    def check(self) -> list[OverlapConflict]:
       """
       Sweep lineal por VESSEL: ordena por start, luego compara cada intervalo
-      contra el anterior. Si start_i <= end_{i-1} → solapamiento.
+      contra el anterior. Si start_i < end_{i-1} → solapamiento.
       O(n log n) por vessel.
       """
       conflicts: list[OverlapConflict] = []
@@ -101,7 +102,7 @@ class OverlapChecker:
             prev = sorted_ivs[i - 1]
             curr = sorted_ivs[i]
 
-            # solapamiento: el actual empieza antes o cuando el anterior termina
+            # solapamiento: el actual empieza antes 
             if curr.start < prev.end:
                conflicts.append(OverlapConflict(
                   vessel=vessel,

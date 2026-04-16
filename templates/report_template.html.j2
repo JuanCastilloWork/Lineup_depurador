@@ -8,27 +8,8 @@
 {# ── FUENTES: se espera que el servidor/generador inyecte las rutas
    o que las TTF estén en la misma carpeta que el HTML generado.
    Para auto-contención, reemplaza las src por data-URIs base64. ──#}
-@font-face {
-  font-family: 'DepMono';
-  font-weight: 400;
-  src: url('LiberationMono-Regular.ttf') format('truetype');
-}
-@font-face {
-  font-family: 'DepMono';
-  font-weight: 700;
-  src: url('LiberationMono-Bold.ttf') format('truetype');
-}
 
 {# El CSS completo se mantiene igual que en el HTML standalone #}
-:root {
-  --bg:     #f5f2eb; --paper: #faf8f3; --ink: #1a1a18; --ink2: #3a3a36;
-  --muted:  #7a7a6e; --rule: #c8c4b8; --rule2: #dedad2;
-  --accent: #c0392b; --accent2: #e74c3c; --warn: #d35400;
-  --ok:     #27ae60; --hi: #f39c12;
-  --mono:   'DepMono', 'Courier New', monospace;
-}
-/* ... mismo CSS del standalone (omitido aquí por brevedad, se comparte) ... */
-
 
 :root {
   --bg:       #f5f2eb;
@@ -43,7 +24,7 @@
   --warn:     #d35400;
   --ok:       #27ae60;
   --hi:       #f39c12;
-  --mono:     'DepMono', 'Courier New', monospace;
+  --mono:     monospace;
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
