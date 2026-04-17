@@ -10,9 +10,6 @@ if __name__ == '__main__':
       
    sys.path.append(str(Path(__file__).resolve().parents[1]))
    from excel.layots import LineUpReportLayout
-   lineup_path_user = Path(
-      'C:/Users/Juan Castillo/proyectos/lineup_validacion/data/acumulados'
-   )
    
    if not lineup_path_user.exists():
        exit()

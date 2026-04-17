@@ -131,14 +131,14 @@ def _validate_status(
    
    valid_status = ~df.index.isin(bad_status_idx)   
    
-   # 4a. ANNOUNCED → ETA debe ser >= current_date
+   # 4a. ANNOUNCED → ETA debe ser >= current_date si existe
    m_announced = valid_status & (vs == enums.VesselStatus.ANNOUNCED.value)
    m_ata_past  = m_announced & df[col_ata].notna() & ~df.index.isin(bad_ata_idx) & (df[col_ata] < current_date)
    for idx, val in df.loc[m_ata_past, col_ata].items():
       add_err(idx, col_ata, val,
-                f"Status '{enums.VesselStatus.ANNOUNCED.value}': ETA ya pasó "
-                f"(debería ser ANCHORED/DRIFTING/BERTHED)",
-                ErrorType.OUT_OF_RANGE) 
+         f"Status '{enums.VesselStatus.ANNOUNCED.value}': ETA ya pasó "
+         f"(debería ser ANCHORED/DRIFTING/BERTHED)",
+         ErrorType.OUT_OF_RANGE) 
 
    # 4b. ANCHORED / DRIFTING → ETA debe ser <= current_date
    m_anch_drift = valid_status & vs.isin([
@@ -146,9 +146,10 @@ def _validate_status(
       enums.VesselStatus.DRIFTING.value,
    ])
    m_ata_future = m_anch_drift & df[col_ata].notna() & ~df.index.isin(bad_ata_idx) & (df[col_ata] > current_date)
+   #m_ata_future = m_anch_drift & ~df.index.isin(bad_ata_idx) & ((df[col_ata] > current_date) | df[col_ata].isna())
    for idx, val in df.loc[m_ata_future, col_ata].items():
       add_err(idx, col_ata, val,
-         f"Status '{vs.at[idx]}': ETA no puede ser futura",
+         f"Status '{vs.at[idx]}': ETA no puede ser futura o vacia",
          ErrorType.OUT_OF_RANGE)
 
    # ETB en ANCHORED/DRIFTING: si existe y es < current_date → inconsistencia
@@ -630,8 +631,8 @@ def _cast_et_interval(
       return result
 
    def _report_error(idx, colname, value, reason, error_type):
-       report.add_error(vessel_series.at[idx], int(idx), colname, value, reason,error_type)
-       logger.error("Indice %s | %s | %s | %s", idx, colname, value, reason)
+      report.add_error(vessel_series.at[idx], int(idx), colname, value, reason,error_type)
+      logger.error("Indice %s | %s | %s | %s", idx, colname, value, reason)
 
    eta_nula  = eta.isna()
    etb_nula  = etb.isna()
@@ -718,6 +719,9 @@ def _cast_et_interval(
          _report_error(idx, col_etb, etb.at[idx], "ETA > ETB > ETC", ErrorType.OUT_OF_RANGE)
          _report_error(idx, col_etc, etc.at[idx], "ETA > ETB > ETC", ErrorType.OUT_OF_RANGE)
 
+         eta_ord_raw.at[idx] = pd.NA
+         etc_ord_raw.at[idx] = _OPEN_END
+
          continue
 
       if not c1:
@@ -728,14 +732,14 @@ def _cast_et_interval(
             _report_error(idx, col_eta, eta.at[idx], "ETA > ETC", ErrorType.OUT_OF_RANGE)
             _report_error(idx, col_etb, etb.at[idx], "ETA > ETC", ErrorType.OUT_OF_RANGE)
             _report_error(idx, col_etc, etc.at[idx], "ETA > ETC", ErrorType.OUT_OF_RANGE)
+            eta_ord_raw.at[idx] = pd.NA
+            etc_ord_raw.at[idx] = _OPEN_END
          else:
-            
             _report_error(idx, col_etb, etb.at[idx], "ETB < ETA", ErrorType.OUT_OF_RANGE)
          continue
 
       if not c2:
          _report_error(idx, col_etb, etb.at[idx], "ETB > ETC", ErrorType.OUT_OF_RANGE)
-
          continue
    
    

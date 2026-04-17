@@ -167,6 +167,14 @@ Si al separar por delimitador, `PRODUCT` tiene 2 partes pero `MT_BY_PRODUCT` tie
 
 > **Efecto en cadena:** Si `TOTAL_MT` falla aquí, esa fila se excluye de la comparación de suma del paso 6.
 
+### Paso 4.1 - MT_BY_PRODUCT vs TOTAL_MT (Unico MT_BY_PRODUCT y multiple productos)
+
+Hay un caso especial, y es cuando ponen ej yc/wc como productos, pero luego en las toneladas ponen solo uno (30000), se sume que esas toneladas son las mismas que el 'TOTAL_MT', pero puede pasar que actualizaron MT_BY_PRODUCT, pero no actualizaron TOTAL_MT, por si acaso, se valida que en este caso, MT_BY_PRODUCT = TOTAL_MT, sino, se reporta
+
+→ **Warning** `SUSPICIOUS_VALUE` nivel **HIGH**
+
+> **Efecto en cadena:** Se ignora el valor, eventualmente se terminara remplazanto MT_BY_PRODUCT por TOTAL_MT en este caso, pero eso puede estar incorrecto
+
 ---
 
 ### Paso 5 — MT_BY_PRODUCT: casteo a Decimal y rango por elemento
@@ -175,7 +183,7 @@ Cada parte individual de `MT_BY_PRODUCT` (después de separar) se convierte a `D
 
 [!IMPORTANT]
 TODO: Aunque verificar el rango por partes no es necesario, ya verifico que TOTAL_MT <300_00 y posteriormente verifico que sum(MT_BY_PRODUCT) == TOTAL_MT y si TOTAL_MT <300_000 -> sum(MT_BY_PRODUCT) < 300_000 (y esta parte puede mejorar performance por que es un apply chambon) 
-TODO: Verificar que 0<MT_BY_PRODUCT<300_000 omite que deberia ser 0<MT_BY_PRODUCT/x<300_000/x , siendo x la cantidad de productos que trae la motonave (si trae dos productos, cada producto debe max 150_000)
+Si igual lo hago...: Verificar que 0<MT_BY_PRODUCT<300_000 omite que deberia ser 0<MT_BY_PRODUCT/x<300_000/x , siendo x la cantidad de productos que trae la motonave (si trae dos productos, cada producto debe max 150_000)
 (Tocaria dividir en base al conteo de valores unicos del indice de la serie explotada)
 
 → **Error** `INVALID_VALUE` (no-decimal o fuera de rango)
@@ -217,7 +225,75 @@ Cada producto individual se verifica contra el diccionario de productos permitid
 
 ---
 
+## 4. Validacion de rangos de fechas ('_cast_et_interval')
+
+Esta seccion valida que las fechas esten en el rango eta<=etb<=etc teniendo en cuenta tambien el periodo (AM y PM) que puede ser vacio
+
+>**Dependencia de entrada:** Depende de que `DATE_OF_ARRIVAL`,`ETB`,`ETC`, y los periodos correspondientes de cada uno, hayan sido casteados. Si hay errores en alguna de las fechas, se exluyen (NO SE ANDAN TENIENDO EN CUENTA ERRORES EN EL PERIODO)
+
+### Paso 1 -- Periodo presente pero fecha ausente
+
+Si alguna de las fechas es vacia, pero si se escribio el periodo, es un error
+
+→ **Error** `MISSING_VALUE`
+
+> **Dependencia:** Se excluyen las fechas con problemas de casteos y que sean vacias
+
+---
+
+### Paso 2 -- Dependencia entre fechas
+
+ - Si existe la `ETC` debe de existir la `DATE_OF_ARRIVAL` y `ETB`,
+ - Si existe `ETB` debe de existir `DATE_OF_ARRIVAL` (Opcional la `ETC`)
+
+→ **Error** `MISSING_VALUE` 
+
+> **Dependencia:** Se excluyen las fechas con problemas de casteos en la `DATE_OF_ARRIVAL`, problemas de casteos en otras columnas son tratados como cualquier otro NA
+
+---
+
+### Paso 3 -- Calculo valores ordinales e intervalos de fechas 
+
+Esta seccion es critica, ya que sirve para comprobar tanto que eta<=etb<=etc y construir los intervalos para ver si las fechas de un mismo barco se intersectan entre si (ver seccion x)
+
+El valor ordinal es los dias transcurridos desde 01-01-0001 (ej : 17-04-2026 en ordinal es 739723). Pero hay dos situaciones:
+
+ 1 El periodo afecta a la fecha (ej : 17-04-2026 AM != 17-04-26 PM)
+ 2 El periodo puede ser vacio
+
+Para poder introducir el periodo en el calculo de fechas dependiendo de su valor se trata como 1 o 0
+
+ - Si el periodo es PM, se suma 1
+ - Si el periodo es AM, se suma 0 (se deja igual)
+
+Pero si el periodo es vacio
+
+ - Si la fecha correspondiente es el inicio de intervalo (`DATE_OF_ARRIVAL`,`ETB`), el periodo se trata como **0**
+ - Si la fecha correspondiente es el final del intervalo (`ETC`), el periodo se trata como **1**
+
+La formula para calcular valores ordinales
+
+valor_ordinal = fecha_ordinal*2 + periodo 
+
+> **Dependencia:** Para inicios del intervalo, las fechas vacias se dejan vacias en su valor ordinal
+
+-> **Crea** Columnas de mismo nombre pero pero con el correspondiente valor ordinal (ej : `ETC_ORD`) 
+
+### Paso 4 -- Verificacion logica eta<=etb<=etc
+[!REFINAR]
+Con las fechas ordinales calculadas, se procede a verificar
+
+- Si `DATE_OF_ARRIVAL_ORD` > `ETB_ORD` > `ETC_ORD`, se reportan las 3
+- Si `ETC_ORD` >= `DATE_OF_ARRIVAL_ORD` > `ETB_ORD`, se reporta 'ETB'
+- Si `ETB_ORD` > `ETC_ORD`, se reportan 'ETB'
+
+> **Dependencia:** Se excluyen fechas vacias en `DATE_OF_ARRIVAL_ORD`,`ETB_ORD`,`ETC_ORD`
+
+[!IMPORTANT]
+TODO: CASOS TIPO ata no nula y etb no nulo pero etc nulo, me los ando saltanndo aqui, toca meterlos y verificar mejor asi sea haciendo las 2^3 combinaciones de casos posibles
+
 ## 4. Validación de Estados (`_validate_status`)
+[!REFINAR]
 
 Esta sección valida la coherencia entre el `STATUS` del buque, su `OPERATION`, y las fechas asociadas.
 
@@ -231,31 +307,40 @@ Si el status es `BERTHED` y `ETB` está vacía (y no fue por error de conversió
 
 ---
 
-### Paso 2 — SAILED requiere ETC
+### Paso 2 — SAILED requiere ETC 
 
-Si el status es `SAILED` y `ETC` está vacía (y no fue por error de conversión de ETC), se reporta.
+Si el status es `SAILED` y la fecha está vacía (y no fue por error de conversión ETC), se reporta.
 
-→ **Error** `MISSING_VALUE` en `ETC`
-
----
-
-### Paso 3 — Fechas futuras en status distintos a ANNOUNCED
-
-Para cualquier status que no sea `ANNOUNCED`, las fechas `ATA`, `ETB` y `ETC` no pueden ser futuras respecto a la fecha actual.
-
-→ **Error** `OUT_OF_RANGE`
-
-> **Dependencia:** Se excluyen filas con errores de conversión en `STATUS`. Las fechas que fallaron conversión quedaron como `NaT`, por lo que no pueden ser "futuras" — no se reportan aquí.
+→ **Error** `MISSING_VALUE` en 'ETC'
 
 ---
 
-### Paso 4 — ANNOUNCED solo puede tener ATA futura
+### Paso 3 — SAILED requiere DATE_OF_ARRIVAL 
 
-Para status `ANNOUNCED`, si `ATA` tiene valor y es **anterior** a la fecha actual, se reporta.
+Si el status es `SAILED` y la fecha está vacía (y no fue por error de conversión DATE_OF_ARRIVAL), se reporta.
 
-→ **Error** `INVALID_VALUE`
+→ **Error** `MISSING_VALUE` en 'DATE_OF_ARRIVAL'
 
 ---
+
+### Paso 4 Validaciones cronologicas por estado
+
+ - 4a. ANNOUNCED → ETA debe ser >= current_date
+ - 4b. ANCHORED / DRIFTING → ETA debe ser <= current_date
+ - ETB en ANCHORED/DRIFTING: si existe y es < current_date → inconsistencia
+ - 4c. BERTHED → ETB debe ser <= current_date
+ - ETC en BERTHED: si existe y es < current_date → debería ser SAILED
+ - 4d. SAILED → ETC debe ser <= current_date
+
+>**Dependencia:** Fechas no vacias son omitidas en cada uno de los checkeos, solo se validan fechas que sean existentes
+
+→ **Error** `OUT_OF_RANGE` en la fecha correspondiente
+
+[!IMPORTANT]
+TODO: Hay que eliminar complejidad y hacer mejor los checkeos teniendo en cuenta nulos y casos especificos...si ya verifique que si existe etc -> eta<=etb<=etc -> 4d hay dos casos
+ - Caso1: existe etc, etc<=current_date (ya se valido anteriormente que si existe etc, etc>=etb>=eta)
+ - Caso2: No existe etc, es un error (Este caso se anda revisando como paso 3)
+TODO: Maybe podria usar el ordinal?...mmm
 
 ### Paso 5 — Combinación VesselStatus + OperationStatus
 
@@ -280,9 +365,9 @@ Tabla de combinaciones válidas:
 
 ### Paso 6 — SAILED: exenciones y nulos en todas las columnas
 
-Para buques con status `SAILED`, **todas las columnas deben tener valor**. Sin embargo, hay dos tipos de exención que relajan esta regla para `PRODUCT` y `MT_BY_PRODUCT`:
+Para buques con status `SAILED`, **todas las columnas deben tener valor**. Sin embargo, hay dos tipos de exención que relajan esta regla para `PRODUCT`,`MT_BY_PRODUCT` y la empresa charteadora:
 
-- **Por tipo de carga:** Si el `CargoType` es `STEEL`, `FERTILIZERS` o `PROJECT_CARGO`, se permiten esos campos vacíos y se rellenan automáticamente con valores por defecto.
+- **Por tipo de carga:** Si el `CargoType` es `STEEL`, `FERTILIZERS` o `PROJECT_CARGO`, se permiten esos campos vacíos y se rellenan automáticamente con valores por defecto para la carga y el charteador se permite vacio.
 - **Por empresa:** Si alguna de las columnas `SHIPOWNER`, `CHARTERER` o `AGENCY` contiene una empresa en la lista negra (blacklist), también aplica la exención.
 
 Para las filas que no tienen exención (o para las columnas que no aplica la exención), cualquier campo nulo se reporta.
@@ -293,37 +378,7 @@ Para las filas que no tienen exención (o para las columnas que no aplica la exe
 
 ---
 
-## 5. Validación de Intervalos de Fechas (`_cast_et_interval`)
-
-Esta sección verifica que las fechas `ATA (ETA)`, `ETB` y `ETC` sean coherentes en orden cronológico, considerando también los periodos (`AM`/`PM`) como desempate.
-
-> **Dependencia de entrada:** Depende del casteo correcto de las tres fechas y sus tres periodos. Si cualquiera de ellos tuvo error de conversión, la fila correspondiente se excluye del cálculo de ordinales para no generar falsos errores de orden.
-
-### Regla 1 — Periodo presente pero fecha ausente
-
-Si un periodo (AM/PM) tiene valor pero su fecha correspondiente está vacía (y la fecha no falló por error de conversión), se reporta.
-
-→ **Error** `MISSING_VALUE` en el campo de periodo
-
----
-
-### Regla 2 — ETB o ETC sin ETA
-
-Si `ETB` o `ETC` tienen valor pero `ETA (ATA)` está vacía (y ATA no falló por error), se reporta.
-
-→ **Error** `MISSING_VALUE` en ETB o ETC
-
-> **Lógica:** ETA es prerequisito para poder definir ETB y ETC. Sin una fecha de llegada, no tiene sentido tener fechas de atraque o zarpe.
-
----
-
-### Cálculo de ordinales
-
-Para verificar el orden cronológico, cada fecha se convierte a un número ordinal multiplicado por 2, al que se le suma 1 si el periodo es `PM`. Esto permite comparar `AM/PM` sin ambigüedad. Las filas con cualquier error en los pasos anteriores de esta sección se excluyen de este cálculo.
-
----
-
-## 6. Variante: `VariantLineUpProcessor`
+## 5. Variante: `VariantLineUpProcessor`
 
 Este procesador extiende el flujo base con una validación adicional sobre la columna `WINDOWS`.
 
@@ -332,3 +387,4 @@ Este procesador extiende el flujo base con una validación adicional sobre la co
 **Si falla:** → **Error** con descripción del formato esperado
 
 > **Dependencia:** Ninguna con otros pasos. Es una validación independiente que corre al final del proceso.
+

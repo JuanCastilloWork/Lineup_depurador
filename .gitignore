@@ -165,3 +165,5 @@ data/
 output/
 config.ini
 config.toml
+
+*.xlsx

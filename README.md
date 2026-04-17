@@ -1,6 +1,6 @@
 
 <p align="center">
-  <img src="assets/company_logo.jpg" width="200" alt="Logo de la Compañía">
+  <img src="assets/company_logo.png" width="200" alt="Logo de la Compañía">
 </p>
 
 # Line up Deep Blue
