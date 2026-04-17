@@ -1,4 +1,3 @@
-pydantic
 rapidfuzz
 openpyxl
 Jinja2

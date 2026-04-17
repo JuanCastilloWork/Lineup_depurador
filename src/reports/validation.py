@@ -18,7 +18,7 @@ meses = [
    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
 ]
 
-def _build_context(port_report : dict[str, ValidationReport], report_metadata : dict,match_report : dict, conf : dict)->dict:
+def _build_context(port_report : dict[str, ValidationReport], report_metadata : dict,match_report : dict,vessel_overlap, conf : dict)->dict:
 
    maintainer = conf.get('maintainer','Deep blue')
    area = conf.get('area','comercial')
@@ -78,6 +78,7 @@ def _build_context(port_report : dict[str, ValidationReport], report_metadata : 
       'errors_by_port': errors_by_port,
       'vessel_report_by_port':vessel_report_by_port,
       'match_report':match_report,
+      'vessel_overlap':vessel_overlap,
    }
 
 def copy_assets(assets_dir : Path, output_path : Path)->bool:
@@ -103,6 +104,7 @@ def render_validation_report(
    port_report : dict[str,ValidationReport],
    report_metadata : dict[str,Any],
    match_report : dict,
+   vessel_overlap : list,
    template_path : Path,
    output_path : Path,
    assets_dir : Path | None,
@@ -114,7 +116,7 @@ def render_validation_report(
    )
    template = env.get_template(template_path.name)
 
-   ctx = _build_context(port_report,report_metadata, match_report, conf)
+   ctx = _build_context(port_report,report_metadata, match_report,vessel_overlap, conf)
    html = template.render(**ctx)
    output_path.write_text(html, encoding="utf-8")
       

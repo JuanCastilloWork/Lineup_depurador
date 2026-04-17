@@ -2,18 +2,14 @@
 from pathlib import Path
 from datetime import datetime
 from additional_data import LineUpValidationsData
-from excel import ExcelResolver,LineUpLayouts, layots
+from excel import ExcelResolver,LineUpLayouts
 import tomllib
 import logging
 from logging.handlers import RotatingFileHandler
 import openpyxl
 from processors import make_processor,PostProcessor,PortBundle
-import pandas as pd
 from reports.client_report import LineUpExcelReport
-from validations.date_overlap import check_overlaps
-from validations.error_registry import ValidationReport
 from reports.validation import render_validation_report
-from rapidfuzz import process,fuzz
 
 Path('./logs/').mkdir(exist_ok=True)
 
@@ -107,9 +103,8 @@ if __name__ == '__main__':
    )
    post.run()
    logger.info('Post-procesamiento completo')
-
    port_report = {port: b.report for port, b in bundles.items()}
- 
+   
    template_path = Path(config['template_path'])
    output_path   = Path(config['output_path'])
    assets_dir    = Path(config['assets_dir'])
@@ -118,6 +113,7 @@ if __name__ == '__main__':
        port_report,
        {'total_rows': sum(len(b.df) for b in bundles.values()), 'total_ports': all_ports_len},
        post.match_report,
+       post.get_vessel_overlaps,
        template_path,
        output_path,
        assets_dir,

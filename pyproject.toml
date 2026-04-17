@@ -1,6 +1,6 @@
 [project]
 name = "lineup-validacion"
-version = "0.1.0"
+version = "0.5.0"
 description = ""
 readme = "README.md"
 requires-python = ">=3.10"
@@ -19,10 +19,9 @@ dev = [
 ]
 
 [tool.flet]
-org = "com.mycompany"
 product = "lineup-validacion"
-company = "Flet"
-copyright = "Copyright (C) 2023-2026 by Flet"
+company = "Deep Blue Ship"
+copyright = "Copyright (C) 2023-2026 by Deep Blue"
 
 [tool.flet.app]
 path = "src"

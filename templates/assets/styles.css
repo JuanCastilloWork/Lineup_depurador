@@ -549,6 +549,271 @@ article.card h3 {
   gap: 6px;
 }
 
+
+/* ═══════════════════════════════════════════════════════
+   OVERLAPS SECTION
+═══════════════════════════════════════════════════════ */
+
+.overlap-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+
+.overlap-badge {
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 12px;
+  border-radius: 20px;
+  background: #FCEBEB;
+  color: #791F1F;
+  border: 0.5px solid rgba(162, 45, 45, 0.2);
+}
+
+.overlap-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* ── card ── */
+.overlap-card {
+  background: #fff;
+  border: 1px solid #D9E2EC;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+
+.overlap-card__header {
+  color: white;
+  padding: 10px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.overlap-card.same-port  .overlap-card__header { background: #7A1E1E; }
+.overlap-card.cross-port .overlap-card__header { background: #7A4D1E; }
+
+.overlap-type-tag {
+  font-size: 10px;
+  opacity: 0.85;
+  background: rgba(255, 255, 255, 0.12);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.badge-overlap {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 3px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  white-space: nowrap;
+}
+
+/* ── body grid ── */
+.overlap-card__body {
+  display: grid;
+  grid-template-columns: 1fr 48px 1fr;
+}
+
+.overlap-row {
+  padding: 14px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.overlap-row__label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #486581;
+  font-weight: 500;
+}
+
+.overlap-row__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.overlap-row__port {
+  font-size: 11px;
+  font-family: 'Consolas', monospace;
+  background: #EBF2FA;
+  color: #0C447C;
+  padding: 2px 8px;
+  border-radius: 4px;
+  display: inline-block;
+  width: fit-content;
+}
+
+.overlap-row__port--cross {
+  background: #FAEEDA;
+  color: #633806;
+}
+
+.overlap-row__excel {
+  font-size: 11px;
+  color: #888780;
+  background: #F1EFE8;
+  padding: 2px 7px;
+  border-radius: 4px;
+  display: inline-block;
+  width: fit-content;
+}
+
+.overlap-dates {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.overlap-date-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.overlap-date-key {
+  font-size: 11px;
+  color: #888780;
+}
+
+.overlap-date-val {
+  font-size: 12px;
+  font-weight: 500;
+  color: #334E68;
+  font-family: 'Consolas', monospace;
+}
+
+/* ── divider central ── */
+.overlap-divider {
+  background: #F8FAFC;
+  border-left: 0.5px solid #E2E8F0;
+  border-right: 0.5px solid #E2E8F0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.overlap-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #FCEBEB;
+  border: 1.5px solid #E24B4A;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.overlap-icon svg {
+  width: 13px;
+  height: 13px;
+  stroke: #A32D2D;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.overlap-label {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: #A32D2D;
+  font-weight: 500;
+  text-align: center;
+}
+
+/* ── separator ── */
+.overlap-separator {
+  border: none;
+  border-top: 0.5px solid #E2E8F0;
+  margin: 0;
+}
+
+/* ── timeline bar ── */
+.overlap-timeline-wrap {
+  padding: 10px 20px 0;
+}
+
+.overlap-tl-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: #888780;
+  margin-bottom: 4px;
+}
+
+.overlap-bar {
+  position: relative;
+  background: #F1EFE8;
+  border-radius: 4px;
+  height: 8px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.overlap-bar__a {
+  position: absolute;
+  top: 0; height: 100%;
+  background: #3a7bd5;
+  opacity: 0.5;
+  border-radius: 4px;
+}
+
+.overlap-bar__b {
+  position: absolute;
+  top: 0; height: 100%;
+  background: #E24B4A;
+  opacity: 0.6;
+  border-radius: 4px;
+}
+
+.overlap-bar__b--cross {
+  background: #E8904A;
+}
+
+.overlap-bar__conflict {
+  position: absolute;
+  top: 0; height: 100%;
+  background: #A32D2D;
+  opacity: 0.85;
+  border-radius: 2px;
+}
+
+/* ── footer chips ── */
+.overlap-footer {
+  padding: 8px 20px 12px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.overlap-footer__chip {
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: 4px;
+  background: #F1EFE8;
+  color: #5F5E5A;
+  border: 0.5px solid rgba(0, 0, 0, 0.08);
+}
+
+.overlap-footer__chip span {
+  font-weight: 500;
+  color: #334E68;
+}
+
 /* ── company suggestion rows ── */
 .match-co-row {
   border: 0.5px solid rgba(0, 0, 0, 0.08);

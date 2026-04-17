@@ -187,9 +187,128 @@
       
   </div>
 
-
-
   
+  {% if vessel_overlaps %}
+  <section id="overlaps" aria-labelledby="titulo-overlaps">
+    <h2 class="section-title" id="titulo-overlaps">Overlaps de vessels</h2>
+  
+    <div class="overlap-summary">
+      <span class="overlap-badge">{{ vessel_overlaps | length }} conflicto{{ 's' if vessel_overlaps | length != 1 else '' }} detectado{{ 's' if vessel_overlaps | length != 1 else '' }}</span>
+    </div>
+  
+    <div class="overlap-list">
+      {% for ov in vessel_overlaps %}
+        {% set cross_port = ov.sheet_a != ov.sheet_b %}
+  
+        <div class="overlap-card {{ 'cross-port' if cross_port else 'same-port' }}">
+  
+          <div class="overlap-card__header">
+            <div class="vessel-info">
+              <span class="vessel-name">{{ ov.vessel }}</span>
+              <span class="overlap-type-tag">
+                {% if cross_port %}
+                  Puertos cruzados · {{ ov.sheet_a.upper() }} → {{ ov.sheet_b.upper() }}
+                {% else %}
+                  Mismo puerto · {{ ov.sheet_a.upper() }}
+                {% endif %}
+              </span>
+            </div>
+            {% set overlap_days = ((ov.interval_a[1] - ov.interval_b[0]) / 86400) | int %}
+            <span class="badge-overlap">Solapamiento {{ overlap_days }} día{{ 's' if overlap_days != 1 else '' }}</span>
+          </div>
+  
+          <div class="overlap-card__body">
+  
+            <div class="overlap-row">
+              <span class="overlap-row__label">Movimiento A</span>
+              <div class="overlap-row__meta">
+                <span class="overlap-row__port">{{ ov.sheet_a.upper() }}</span>
+                <span class="overlap-row__excel">Excel Row: {{ ov.row_a }}</span>
+              </div>
+              <div class="overlap-dates">
+                <div class="overlap-date-row">
+                  <span class="overlap-date-key">ATA</span>
+                  <span class="overlap-date-val">{{ ov.row_a_data['DATE_OF_ARRIVAL'] }}</span>
+                </div>
+                <div class="overlap-date-row">
+                  <span class="overlap-date-key">ETC</span>
+                  <span class="overlap-date-val">{{ ov.row_a_data['ETC'] }}</span>
+                </div>
+              </div>
+            </div>
+  
+            <div class="overlap-divider">
+              <div class="overlap-icon">
+                <svg viewBox="0 0 14 14"><line x1="7" y1="2" x2="7" y2="12"/><line x1="2" y1="7" x2="12" y2="7"/></svg>
+              </div>
+              <span class="overlap-label">overlap</span>
+            </div>
+  
+            <div class="overlap-row">
+              <span class="overlap-row__label">Movimiento B</span>
+              <div class="overlap-row__meta">
+                <span class="overlap-row__port {{ 'overlap-row__port--cross' if cross_port else '' }}">{{ ov.sheet_b.upper() }}</span>
+                <span class="overlap-row__excel">Excel Row: {{ ov.row_b }}</span>
+              </div>
+              <div class="overlap-dates">
+                <div class="overlap-date-row">
+                  <span class="overlap-date-key">ATA</span>
+                  <span class="overlap-date-val">{{ ov.row_b_data['DATE_OF_ARRIVAL'] }}</span>
+                </div>
+                <div class="overlap-date-row">
+                  <span class="overlap-date-key">ETC</span>
+                  <span class="overlap-date-val">{{ ov.row_b_data['ETC'] }}</span>
+                </div>
+              </div>
+            </div>
+  
+          </div>
+  
+          <hr class="overlap-separator">
+  
+          {# ── Barra de timeline ── #}
+          {% set t_start = ov.interval_a[0] %}
+          {% set t_end   = ov.interval_b[1] %}
+          {% set t_range = t_end - t_start %}
+  
+          {% set a_left  = 0 %}
+          {% set a_width = (((ov.interval_a[1] - t_start) / t_range) * 100) | round(1) %}
+          {% set b_left  = (((ov.interval_b[0] - t_start) / t_range) * 100) | round(1) %}
+          {% set b_width = (((ov.interval_b[1] - ov.interval_b[0]) / t_range) * 100) | round(1) %}
+          {% set ol_left  = b_left %}
+          {% set ol_width = (((ov.interval_a[1] - ov.interval_b[0]) / t_range) * 100) | round(1) %}
+  
+          <div class="overlap-timeline-wrap">
+            <div class="overlap-tl-labels">
+              <span>{{ ov.row_a_data['DATE_OF_ARRIVAL'] }}</span>
+              <span>{{ ov.row_b_data['DATE_OF_ARRIVAL'] }}</span>
+              <span>{{ ov.row_a_data['ETC'] }}</span>
+              <span>{{ ov.row_b_data['ETC'] }}</span>
+            </div>
+            <div class="overlap-bar">
+              <div class="overlap-bar__a"  style="left:{{ a_left }}%; width:{{ a_width }}%;"></div>
+              <div class="overlap-bar__b {{ 'overlap-bar__b--cross' if cross_port else '' }}"
+                   style="left:{{ b_left }}%; width:{{ b_width }}%;"></div>
+              <div class="overlap-bar__conflict" style="left:{{ ol_left }}%; width:{{ ol_width }}%;"></div>
+            </div>
+          </div>
+  
+          <div class="overlap-footer">
+            <span class="overlap-footer__chip">Días solapados: <span>{{ overlap_days }}</span></span>
+            {% if cross_port %}
+              <span class="overlap-footer__chip">Puerto A: <span>{{ ov.sheet_a.upper() }}</span></span>
+              <span class="overlap-footer__chip">Puerto B: <span>{{ ov.sheet_b.upper() }}</span></span>
+            {% else %}
+              <span class="overlap-footer__chip">ETC Mov A: <span>{{ ov.row_a_data['ETC'] }}</span></span>
+              <span class="overlap-footer__chip">ATA Mov B: <span>{{ ov.row_b_data['DATE_OF_ARRIVAL'] }}</span></span>
+            {% endif %}
+          </div>
+  
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}  
   {% set has_companies = match_report.companies | length > 0 %}
   {% set has_ports     = match_report.ports     | length > 0 %}
   {% set has_vessels   = match_report.vessels   | length > 0 %}

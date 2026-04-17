@@ -308,7 +308,7 @@ class LineUpExcelReport:
       cell.font      = Font(name="Calibri", size=11)
       cell.alignment = Alignment(horizontal="center", vertical="center")
 
-   def create_report(self, output_path : Path = Path('daily_lineup.xlsx'), header_row : int = 12, logo_path : Path = Path('./assets/company_logo.png')):
+   def create_report(self, output_path : Path = Path('daily_lineup.xlsx'), header_row : int = 12, logo_path : Path = Path('./templates/assets/company_logo.png')):
 
       wb = Workbook()
       wb.remove(wb.active)

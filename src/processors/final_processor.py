@@ -495,3 +495,6 @@ class PostProcessor:
       return dict(
          sorted(merged.items(), key=lambda x: x[1], reverse=True)[:limit]
       )
+   @property
+   def get_vessel_overlaps(self):
+      return self._vessel_conflicts
