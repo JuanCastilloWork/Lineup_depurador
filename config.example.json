@@ -1,0 +1,84 @@
+{
+  "metadata": {
+    "title": "Line Up configuracion para la validacion",
+    "version": 1,
+    "maintainer": "Persona mantenedora",
+    "in_charge": {
+      "name": "Prueba persona nueva",
+      "area": "Comercial"
+    }
+  },
+  "client_report": {
+    "highlight_company": true,
+    "highlight_style": {
+      "name": "Compañia ejemplo",
+      "color": "#122649",
+      "bold": true
+    },
+    "filename_prefix": "Line up validation",
+    "overwrite": false
+  },
+  "external_files": {
+    "additional_data_path": "./data/tables.xlsx",
+    "template_path": "./templates/validation.html.j2",
+    "assets_dir": "./templates/assets"
+  },
+  "processing": {
+    "header_row": 12,
+    "check_headers": false,
+    "add_summary": true
+  },
+  "matching": {
+    "min_score": 80,
+    "company": {
+      "check_charterer": true,
+      "check_owner": false,
+      "check_agency": true,
+      "strategy": "global",
+      "scores": {
+        "partial_ratio": 70,
+        "simple_ratio": 70,
+        "token_set_ratio": 90
+      }
+    },
+    "port": {
+      "enabled": true,
+      "scores": {
+        "partial_ratio": 85,
+        "simple_ratio": 80,
+        "token_set_ratio": 90
+      }
+    },
+    "vessel": {
+      "enabled": true,
+      "scores": {
+        "partial_ratio": 85,
+        "simple_ratio": 80,
+        "token_set_ratio": 90
+      }
+    }
+  },
+  "office_ports": {
+    "buenaventura": [
+      "buenaventura"
+    ],
+    "santa_marta": [
+      "santa_marta",
+      "puerto_brisa"
+    ],
+    "tolu": [
+      "tolu",
+      "coveñas"
+    ],
+    "barranquilla": [
+      "barranquilla"
+    ],
+    "cartagena": [
+      "cartagena"
+    ]
+  },
+  "layouts": {
+    "coveñas": "variant",
+    "barranquilla": "default"
+  }
+}

@@ -165,5 +165,6 @@ data/
 output/
 config.ini
 config.toml
+config.json
 
 *.xlsx
