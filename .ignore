@@ -4,3 +4,4 @@ build/
 dist/
 antiguo_todo/
 !*.log
+!config.json

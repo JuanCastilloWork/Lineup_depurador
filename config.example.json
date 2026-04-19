@@ -13,15 +13,18 @@
     "highlight_style": {
       "name": "Compañia ejemplo",
       "color": "#122649",
-      "bold": true
+      "bold": true,
+      "italic": false
     },
     "filename_prefix": "Line up validation",
-    "overwrite": false
+    "overwrite": false,
+    "template":{
+      "file": "./templates/validation.html.j2",
+      "assets": "./templates/assets"
+    }
   },
   "external_files": {
     "additional_data_path": "./data/tables.xlsx",
-    "template_path": "./templates/validation.html.j2",
-    "assets_dir": "./templates/assets"
   },
   "processing": {
     "header_row": 12,

@@ -5,10 +5,11 @@ import logging
 from typing import Any
 import flet as ft
 import json
-
+import re
 from openpyxl.styles import Color
-
 from reports import client_report
+
+HEX_PATTERN = re.compile(r'^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$')
 
 Path('./logs/').mkdir(exist_ok=True)
 
@@ -54,6 +55,9 @@ class LineUpModel:
    client_report_prefix: str = ""
    client_report_overwrite : bool = False
    is_editing : bool = False
+   processing_header_row: int = 12
+   processing_check_headers: bool = False
+   processing_add_summary: bool = True
 
    def change_editing_mode(self):
       self.is_editing = not self.is_editing
@@ -73,6 +77,9 @@ class LineUpModel:
       base_config['client_report']['highlight_style']['color'] = self.highlight_style_color
       base_config['client_report']['highlight_style']['bold'] = self.highlight_style_bold
       base_config['client_report']['filename_prefix'] = self.client_report_prefix
+      base_config['processing']['header_row'] = self.processing_header_row
+      base_config['processing']['check_headers'] = self.processing_check_headers
+      base_config['processing']['add_summary'] = self.processing_add_summary
       return base_config
       
 
@@ -96,6 +103,9 @@ def LineUpConfigComponent():
 
    def on_change_overwrite_client_report(e):
       app.change_overwrite_file_report()
+
+   def on_change_report_color(e : ft.Event[ft.TextField]):
+      e.control.value
 
    def save_config(e):
       _save_config(app.to_config(_load_config()))
@@ -160,7 +170,7 @@ def LineUpConfigComponent():
                      value=app.client_report_overwrite,
                      disabled=not app.is_editing,
                      label='Overwrite file',
-                     
+                     on_change=on_change_overwrite_client_report
                   )
                ]
             ),
@@ -179,6 +189,64 @@ def LineUpConfigComponent():
                   ),
                ] 
             ),
+            ft.Row(
+               spacing=12,
+               vertical_alignment=ft.CrossAxisAlignment.CENTER,
+               controls=[
+                  ft.TextField(
+                     value=app.highlight_style_color,
+                     label='Color de compañía (hex)',
+                     disabled=not app.is_editing,
+                     on_change=lambda e: app.set_config('highlight_style_color', e.control.value) if bool(HEX_PATTERN.match(e.control.value)) else None,
+                     input_filter=ft.InputFilter(allow = True, regex_string = r'[#0-9a-fA-F]'),
+                  ),
+                  ft.Container(
+                     width=42,
+                     height=42,
+                     border_radius=8,
+                     bgcolor=app.highlight_style_color,
+                     border=ft.border.all(1, ft.Colors.OUTLINE_VARIANT),
+                     tooltip=app.highlight_style_color
+                  )
+               ]
+            ),
+
+            section_divider(),
+            ft.Row(
+                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                controls=[
+                    section_title('Processing'),
+                    ft.Row(
+                        spacing=4,
+                        controls=[
+                            ft.Switch(
+                                value=app.processing_check_headers,
+                                disabled=not app.is_editing,
+                                label='Check headers',
+                                on_change=lambda e: app.set_config('processing_check_headers', e.control.value)
+                            ),
+                            ft.Switch(
+                                value=app.processing_add_summary,
+                                disabled=not app.is_editing,
+                                label='Add summary',
+                                on_change=lambda e: app.set_config('processing_add_summary', e.control.value)
+                            ),
+                        ]
+                    )
+                ]
+            ),
+            ft.TextField(
+                value=str(app.processing_header_row),
+                label='Header row',
+                helper='Fila del header en el archivo Excel (1-indexado)',
+                disabled=not app.is_editing,
+                input_filter=ft.InputFilter(allow=True, regex_string=r'^[0-9]*$'),
+                max_length=2,
+                on_change=lambda e: app.set_config('processing_header_row', int(e.control.value))
+                    if re.match(r'^([2-9]|1[0-5]?)$', e.control.value) else None,
+                error=None if re.match(r'^([2-9]|1[0-5]?)$', str(app.processing_header_row)) else 'Valor inválido (1-15)',
+            ),
+            
          ]
       )
    )
