@@ -69,14 +69,14 @@
       <div class="kpi-card">
         <div class="kpi-card-top">
           <span class="kpi-card-lbl">Errores</span>
-          <span class="kpi-card-pill" style="background:#FFE3E3; color:#962D2D;">x̄ = {{(errors/total_row_errors) | round(1)}}</span>
+          <span class="kpi-card-pill" style="background:#FFE3E3; color:#962D2D;">x̄ = {% if total_row_errors > 0 %}{{(errors/total_row_errors) | round(1)}}{% else %}N/A{% endif %}</span>
         </div>
         <p class="kpi-card-num" style="color:#962D2D;">{{errors}}</p>
       </div>    
       <div class="kpi-card">
         <div class="kpi-card-top">
           <span class="kpi-card-lbl">Advertencias</span>
-          <span class="kpi-card-pill" style="background:#FAEEDA; color:#633806;">x̄ = {{(warnings/total_row_warnings) | round(1)}}</span>
+          <span class="kpi-card-pill" style="background:#FAEEDA; color:#633806;">x̄ = {% if total_row_warnings > 0 %}{{(warnings/total_row_warnings) | round(1)}}{% else %}N/A{% endif %}</span>
         </div>
         <p class="kpi-card-num" style="color:#854F0B;">{{warnings}}</p>
       </div>    
@@ -100,6 +100,7 @@
         {% for label, count in errors_by_type %}
           
           {% set pct = (count / errors * 100) | round(0) | int %}
+          
           {% set ns = namespace(color="#F0997B") %}
           {% if pct >= 60 %}{% set ns.color = "#A32D2D" %}
           {% elif pct >= 30 %}{% set ns.color = "#D85A30" %}

@@ -519,7 +519,7 @@ def _format_port_country(series: pd.Series, colname: str, vessel_series: pd.Seri
       if pd.isna(value) or str(value).strip() == '':
          return value
       
-      parts = re.split(r'[\/\-\+,]', str(value), maxsplit=1)
+      parts = re.split(r'[\/\-\+,]', str(value))
       
       if len(parts) == 2:
          port = parts[0].strip()

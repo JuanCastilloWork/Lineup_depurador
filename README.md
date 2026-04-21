@@ -60,3 +60,65 @@ Este módulo ajusta la sensibilidad de los algoritmos de matcheo de texto usando
 | :--- | :--- | :--- |
 | `LINEUP_VALIDATION.html` | Generador | No sobrescribible si existe previamente. |
 | `assets/` | Recursos | Contiene logos y estilos para el reporte. |
+
+Aquí tienes una propuesta de archivo `README.md` (o instrucciones) clara, profesional y estructurada para que cualquier desarrollador pueda poner en marcha el proyecto rápidamente.
+
+### Guía de Instalación y Compilación
+
+#### 1. Clonar el repositorio
+Primero, descargar el codigo fuente:
+
+```bash
+git clone https://github.com/JuanCastilloWork/Lineup_depurador
+cd NOMBRE_DEL_REPOSITORIO
+```
+
+#### 2. Configurar el entorno virtual
+No es obligatorio usar un entorno virtual, pero es lo mejor:
+
+**En Windows:**
+```bash
+py -m venv .venv
+.\.venv\Scripts\activate
+```
+
+**En macOS/Linux:**
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+#### 3. Instalar dependencias
+Para el desarrollo, usar requirements_dev.txt:
+
+```bash
+pip install pip --upgrade
+pip install -r requirements_dev.txt
+```
+
+#### 4. Ejecutar en modo desarrollo
+Para probar que todo funciona correctamente antes de compilar, se puede ejecutar el app:
+
+```bash
+flet run main.py
+```
+
+#### 5. Compilar a ejecutable (.exe)
+Para empaquetar la aplicación en un único archivo ejecutable para Windows, utilizaremos el comando `flet pack`. 
+
+OPCIONAL : Se puede cambiar el icono y otras cosas:
+
+```bash
+flet pack src/main.py --icon icon.ico --name "Lineupdepurador"
+```
+* **src/main.py**: Es el punto de entrada.
+* **--name**: El nombre que tendrá el archivo `.exe` resultante.
+* **Resultado**: El ejecutable se generará dentro de una carpeta llamada `dist/`.
+
+---
+
+### Notas adicionales
+* El proyecto se recomienda usar ultima version de python (3.15).
+* Si hay errores, verificar tener instalado el compilador de C++ necesario (en Windows es *Build Tools para Visual Studio*).
+
+---

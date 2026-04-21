@@ -111,8 +111,8 @@ def render_validation_report(
    conf : dict,
 ):
    env = Environment(
-       loader=FileSystemLoader(str(template_path.parent)),
-       autoescape=select_autoescape(["html", "j2"]),
+      loader=FileSystemLoader(str(template_path.parent)),
+      autoescape=select_autoescape(["html", "j2"]),
    )
    template = env.get_template(template_path.name)
 

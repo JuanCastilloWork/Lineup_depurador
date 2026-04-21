@@ -24,7 +24,7 @@
     }
   },
   "external_files": {
-    "additional_data_path": "./data/tables.xlsx",
+    "additional_data_path": "./data/tables.xlsx"
   },
   "processing": {
     "header_row": 12,
