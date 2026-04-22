@@ -13,12 +13,12 @@ $script:Config = @{
     MainFile = "src/main.py"
     DistPath = "dist"
     ExternalData  = @{
-        "src/assets" = "assets"
+        "src/assets" = "dist/assets"
         "README.md"            = "dist"
         "config.example.json"  = "dist"
         "docs"                 = "dist\docs"
         "templates"            = "dist\templates"
-        "data" = "data"
+        "data" = "dist/data"
     }
 }
 

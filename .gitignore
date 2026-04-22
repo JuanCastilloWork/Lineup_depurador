@@ -163,8 +163,7 @@ cython_debug/
 storage/
 data/
 output/
-config.ini
-config.toml
 config.json
+main.spec
 
 *.xlsx
