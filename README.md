@@ -17,10 +17,9 @@ Aplicación en Python que toma el lineup diario de distintos puertos:  valida y 
 El flujo de trabajo del proyecto es el siguiente:
 
 1. **Carga de configuración:** Al iniciar, el programa lee automáticamente los valores del archivo `config.toml`.
-2. **Edición en interfaz:** Puedes modificar campos como (puertos, nombres de agencia, umbrales de matching) directamente en el formulario.
+2. **Edición en interfaz:** Puedes modificar campos como (puertos, nombres de agencia, umbrales de matching) directamente en el formulario. (en desarrollo varios campos [roadmap](docs/roadmap.md))
 3. **Verificación de archivo auxiliar:** Asegurar que la ruta en `additional_data_path` apunte a donde tienes la tabla de datos auxiliares para la validacion.
 4. **Ejecución:** Tras confirmar los parámetros en la UI, se dispara el proceso de carga,limpieza y validación (consultar la [guía de depuración](docs/depuration.md)).
-5. **Generación de Reporte:** El programa genera el archivo final en la ruta de salida. **Nota crítica:** Si el archivo indicado en la configuración ya existe, el generador no lo sobrescribirá para evitar la pérdida de información previa.
 
 ---
 
@@ -29,27 +28,28 @@ Los campos editables en la aplicación están organizados bajo las siguientes ca
 
 ### Configuración General
 Controla la identidad del reporte y las rutas físicas en el equipo:
-* **Metadatos del reporte:** Define el responsable (`maintainer`), el área comercial y la ubicación de las plantillas de renderizado.
 * **Lógica de entrada/salida:** Determina la fila de encabezado en el Excel de origen y la ruta de destino del reporte generado.
 * **Componentes visuales:** Define el directorio de assets que alimentará tanto la interfaz de Flet como el reporte final.
+
+*No todas las categorias estan ya metidas en la interfaz, pero ya estan metidas en el json de configuración*
 
 ### Identificación de Compañía
 Configuración específica para el resaltado de marca propia:
 * **Criterios de Resaltado:** El nombre de la agencia definido en la configuración sirve como disparador. Si este nombre aparece en las columnas de charteador, armador o agencia, la aplicación aplicará visualmente el color corporativo (en formato hexadecimal) a dichas filas.
 
 ### Oficinas y Puertos
-Define la estructura operativa por oficinas:
+Define la estructura operativa por oficinas (falta en la interfaz):
 * **Responsabilidad de puertos:** Permite asignar qué puertos pertenecen a cada oficina (ej. Barranquilla, Cartagena, Buenaventura).
 * **Layouts de datos:** Define si el procesamiento de un puerto específico debe seguir la estructura estándar del line up (`default`) o una variante (`variant`). NOTA: La variante es el caso de coveñas, donde hay una columna de windiows y se cambian nombres de columnas.
 
-### Estrategias de Validación (Matching)
+### Estrategias de Validación (Matching) (falta en la interfaz)
 Este módulo ajusta la sensibilidad de los algoritmos de matcheo de texto usando **Rapidfuzz** (Aplica para la busqueda de nombres de archivos y hojas principalmente):
 
-#### Validación de Compañías
+#### Validación de Compañías (falta en la interfaz)
 * **Interruptores de validación:** Permite habilitar o deshabilitar de forma independiente la validación de charteadores (*charterers*), armadores (*owners*) y agencias.
 * **Scores de precisión:** Define el nivel de coincidencia mínimo necesario para que el programa acepte un nombre como válido. Un `token_set_ratio` más alto implica una validación más estricta para este procesador.
 
-#### Validación de Puertos y Buques
+#### Validación de Puertos y Buques (falta en la interfaz)
 * **Interruptor de validacion:** Permite habilidar o deshabilitar de forma independiente la validacion
 * **Scores de precisión:** Si el matching está habilitado, el programa intentará corregir automáticamente nombres mal escritos basándose en los umbrales definidos.
 
@@ -102,17 +102,14 @@ flet run main.py
 ```
 
 #### 5. Compilar a ejecutable (.exe)
-Para empaquetar la aplicación en un único archivo ejecutable para Windows, utilizaremos el comando `flet pack`. 
+Para empaquetar la aplicación en un único archivo ejecutable para Windows, hay un modulo en PowerShell para simplificar los pasos
 
-OPCIONAL : Se puede cambiar el icono y otras cosas:
+Para importar el modulo, ejecuta proyect.ps1 y posteriormente puedes llamar la funcion Invoke-FletBuild
 
-```bash
-flet pack src/main.py --icon icon.ico --name "Lineupdepurador"
+```powershell
+.\proyect.ps1
+Invoke-FletBuild
 ```
-* **src/main.py**: Es el punto de entrada.
-* **--name**: El nombre que tendrá el archivo `.exe` resultante.
-* **Resultado**: El ejecutable se generará dentro de una carpeta llamada `dist/`.
-
 ---
 
 ### Notas adicionales

@@ -507,7 +507,7 @@ def LineUpConfigComponent():
                border_radius=8,
                padding=15,
                content = ft.Image(
-                  src='company_logo.png',
+                  src='assets/company_logo.png',
                   height=145,
                   align=ft.Alignment.CENTER
                ),
