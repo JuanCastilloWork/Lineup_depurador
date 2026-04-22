@@ -512,39 +512,57 @@ def join_or_decimal(series):
    else:
        return None
 
-def _format_port_country(series: pd.Series, colname: str, vessel_series: pd.Series, report: ValidationReport) -> pd.Series:
-   original_na = series.isna()
-   
-   def parse_port(value):
-      if pd.isna(value) or str(value).strip() == '':
-         return value
-      
-      parts = re.split(r'[\/\-\+,]', str(value))
-      
-      if len(parts) == 2:
-         port = parts[0].strip()
-         country = parts[1].strip()
-         return f"{port}, {country}"
-      
-      return None  # No se encontró separador → error
-   
-   parsed = series.map(parse_port)
-   
-   new_errors = parsed.isna() & ~original_na
-   error_values = series[new_errors]
-   assert isinstance(error_values, pd.Series)
-   
-   if error_values.empty:
-      return parsed
-   
-   for idx, value in error_values.items():
-      assert isinstance(idx,int)
-      reason = f"Valor '{value}' no contiene un separador válido ('/', '-', '+', ',') para identificar puerto y país"
-      report.add_error(vessel_series.at[idx], idx, colname, value, reason,ErrorType.INVALID_FORMAT)
-      logger.error('Indice %s | %s | %s | %s', idx, colname, value, reason)
-   
-   return parsed
 
+def _format_port_country(
+   series: pd.Series,
+   colname: str,
+   vessel_series: pd.Series,
+   report: ValidationReport,
+) -> pd.Series:
+   original_na = series.isna()
+
+   # 1. Split + explode + strip vectorizado
+   exploded = series.str.split(r'[\/\-\+,]').explode().str.strip()
+
+   # 2. Contar partes por índice (solo no-NA)
+   parts_count = (
+       exploded[~original_na.reindex(exploded.index, fill_value=False)]
+       .groupby(level=0)
+       .size()
+   )
+
+   # 3. Reportar errores donde parts_count != 2 (sin dejar de reconstruir)
+   invalid_idx = parts_count[parts_count != 2].index
+   for idx in invalid_idx:
+      value  = series.at[idx]
+      reason = (
+          f"Valor '{value}' no cumple el formato valido 'puerto, pais'"
+          f"o no se encuentra con separador valido"
+      )
+      report.add_warning(
+         vessel_series.at[idx], idx, colname, value, reason, WarningLevel.MEDIUM, WarningType.UNKNOWN
+      )
+      logger.error("Índice %s | %s | %s | %s", idx, colname, value, reason)
+
+   # 4. Separar país (último) y puerto (todos los anteriores)
+   cumcount = exploded.groupby(level=0).cumcount(ascending=False)
+
+   country = exploded[cumcount == 0].rename('country')
+   port    = (
+       exploded[cumcount > 0]
+       .groupby(level=0)
+       .agg(', '.join)
+       .rename('port')
+   )
+
+   # 5. Reconstruir uniendo por índice
+   reconstructed = port.str.cat(country, sep=', ')
+
+   # 6. Combinar resultado final
+   result = pd.Series(pd.NA, index=series.index, dtype='string')
+   result.update(reconstructed)
+
+   return result
 
 def _validate_terminals(series: pd.Series, colname: str, vessel_series: pd.Series, terminals: list, report: ValidationReport) -> pd.Series:
    original_na = series.isna()

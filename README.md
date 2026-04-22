@@ -61,8 +61,6 @@ Este módulo ajusta la sensibilidad de los algoritmos de matcheo de texto usando
 | `LINEUP_VALIDATION.html` | Generador | No sobrescribible si existe previamente. |
 | `assets/` | Recursos | Contiene logos y estilos para el reporte. |
 
-Aquí tienes una propuesta de archivo `README.md` (o instrucciones) clara, profesional y estructurada para que cualquier desarrollador pueda poner en marcha el proyecto rápidamente.
-
 ### Guía de Instalación y Compilación
 
 #### 1. Clonar el repositorio
@@ -118,7 +116,7 @@ flet pack src/main.py --icon icon.ico --name "Lineupdepurador"
 ---
 
 ### Notas adicionales
-* El proyecto se recomienda usar ultima version de python (3.15).
+* El proyecto se recomienda usar ultima version de python (3.14).
 * Si hay errores, verificar tener instalado el compilador de C++ necesario (en Windows es *Build Tools para Visual Studio*).
 
 ---

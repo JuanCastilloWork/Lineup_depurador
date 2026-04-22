@@ -78,7 +78,7 @@ def _build_context(port_report : dict[str, ValidationReport], report_metadata : 
       'errors_by_port': errors_by_port,
       'vessel_report_by_port':vessel_report_by_port,
       'match_report':match_report,
-      'vessel_overlap':vessel_overlap,
+      'vessel_overlaps':vessel_overlap,
    }
 
 def copy_assets(assets_dir : Path, output_path : Path)->bool:
