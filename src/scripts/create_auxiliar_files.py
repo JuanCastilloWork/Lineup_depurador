@@ -19,7 +19,11 @@ def _normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
    """Normaliza nombres de columnas: strip, mayúsculas, espacios → '_'."""
    import re
    def clean_name(name):
-      # 1. Convertir a mayúsculas y limpiar bordes
+      # 1. Convertir a mayúsculas y limpiar borde
+
+      if not isinstance(name,str):
+         logger.error(f'Tenes un nombre de columna que no es TEXTO {name}')
+         name = str(name)
       name = name.upper().strip()
       # 2. Reemplazar todo lo que NO sea letras (A-Z) o números (0-9) por '_'
       name = re.sub(r"[^A-Z0-9]+", "_", name)

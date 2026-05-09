@@ -31,7 +31,7 @@ DARK_THEME = ft.Theme(
    
 )
 LIGHT_THEME = ft.Theme(
-   color_scheme_seed= ft.Colors.PURPLE_100
+   color_scheme_seed= ft.Colors.LIGHT_BLUE_400
    
 )
 CONFIG_PATH = Path('./config.json')
@@ -71,6 +71,8 @@ class LineUpModel:
    matching_company_charterer_enabled : bool = False
    matching_company_owner_enabled : bool = False
    matching_company_agency_enabled : bool = False
+   matching_port_enabled : bool = False
+   matching_vessel_enabled : bool = False
    
    def change_editing_mode(self):
       self.is_editing = not self.is_editing
@@ -93,6 +95,11 @@ class LineUpModel:
       base_config['processing']['header_row'] = self.processing_header_row
       base_config['processing']['check_headers'] = self.processing_check_headers
       base_config['processing']['add_summary'] = self.processing_add_summary
+      base_config['matching']['company']['check_owner'] = self.matching_company_owner_enabled
+      base_config['matching']['company']['check_charterer'] = self.matching_company_charterer_enabled
+      base_config['matching']['company']['check_agency'] = self.matching_company_agency_enabled
+      base_config['matching']['port']['enabled'] = self.matching_port_enabled
+      base_config['matching']['vessel']['enabled'] = self.matching_vessel_enabled
       return base_config
 
 def use_dialog(dialog_factory: Callable[[], ft.AlertDialog]) -> Callable[[], None]:
@@ -200,7 +207,7 @@ def LineUpConfigComponent():
 
       execution_path = Path(dep_config.lineup_paths)
       resolver = ExcelResolver(execution_path)
-      valid_files = resolver.match_files(list(office_ports.keys()))
+      valid_files = resolver.match_files(list(office_ports.keys()), 70)
 
       bundles: dict[str, PortBundle] = {}
       for office, file_path in valid_files.items():
@@ -252,7 +259,7 @@ def LineUpConfigComponent():
       template_path = Path(client_report_template['file'])
       output_path   = Path(execution_path) / 'output'
       output_path.mkdir(exist_ok=True)
-      output_depuration = output_path / f'Line up depuration {lineup_date.strftime('%d-%m-%Y')}.html'
+      output_depuration = output_path / f'{client_report_config['filename_prefix']} {lineup_date.strftime('%d.%m.%Y')}.html'
       
       assets_dir = Path(client_report_template['assets'])
  
@@ -271,9 +278,13 @@ def LineUpConfigComponent():
       client_report = LineUpExcelReport(
          bundles,           # dict[str, PortBundle] — reemplaza los 3 dicts separados
          client_report_config['highlight_style']['name'],
-         lineup_date
+         lineup_date,
+         client_report_config['cod'],
+         client_report_config['cod_date']
       )
-      client_report.create_report(output_path /f'Line up {lineup_date.strftime('%d-%m-%Y')}.xlsx',header_row=_config['processing']['header_row'])
+      client_report.create_report(output_path /f'{client_report_config['outputname_prefix']} {lineup_date.strftime('%d.%m.%Y')}.xlsx',header_row=_config['processing']['header_row'],
+         no_data_placeholder=client_report_config['no_data_placeholder']
+      )
 
    async def on_create_axiliar_files(e):
       lineups_path = await ft.FilePicker().get_directory_path()
@@ -281,8 +292,11 @@ def LineUpConfigComponent():
       if lineups_path is None:
          return
       def run():
-         create_auxiliar_data(Path(lineups_path))
-
+         try:
+            create_auxiliar_data(Path(lineups_path))
+         except Exception as ex:
+            ft.context.page.show_dialog(ft.SnackBar(f'A error hapens {ex}', bgcolor=ft.Colors.RED_400))
+            return
          ft.context.page.show_dialog(ft.SnackBar(f'Creation complete, result in {lineups_path}', bgcolor=ft.Colors.GREEN_400))
       
       ft.context.page.show_dialog(ft.SnackBar('Creating auxiliar files'))
@@ -294,11 +308,16 @@ def LineUpConfigComponent():
       if lineups_path is None:
          return
       def run():
-         process_lineups(Path(lineups_path), config['office_ports'], 2026)
+         try:
+            process_lineups(Path(lineups_path), config['office_ports'], 2026)
+         except Exception as ex:
+            ft.context.page.show_dialog(ft.SnackBar(f'A error hapens {ex}', bgcolor=ft.Colors.RED_400))
+            return
          ft.context.page.show_dialog(ft.SnackBar(f'Migration complete, result in {lineups_path}', bgcolor=ft.Colors.GREEN_400))
 
       ft.context.page.show_dialog(ft.SnackBar('Migration starts'))
       ft.context.page.run_thread(run)
+
    def on_change_editing_mode(e):
       app.change_editing_mode()
 
@@ -325,16 +344,31 @@ def LineUpConfigComponent():
    
    config,_ = ft.use_state(_load_config())
    app, _ = ft.use_state(LineUpModel(
-        in_charge_name=config['metadata']['in_charge']['name'],
-        in_charge_area=config['metadata']['in_charge']['area'],
-        highlight_style_company_name=config['client_report']['highlight_style']['name'],
-        highlight_style_color=config['client_report']['highlight_style']['color'],
-        highlight_style_bold=config['client_report']['highlight_style']['bold'],
-        client_report_prefix=config['client_report']['filename_prefix'],
-        client_report_overwrite=config['client_report']['overwrite'],
-      )
-   )
-   
+       # metadata
+       in_charge_name=config['metadata']['in_charge']['name'],
+       in_charge_area=config['metadata']['in_charge']['area'],
+       # client_report
+       highlight_style_company_name=config['client_report']['highlight_style']['name'],
+       highlight_style_color=config['client_report']['highlight_style']['color'],
+       highlight_style_bold=config['client_report']['highlight_style']['bold'],
+       client_report_prefix=config['client_report']['filename_prefix'],
+       client_report_overwrite=config['client_report']['overwrite'],
+       # processing
+       processing_header_row=config['processing']['header_row'],
+       processing_check_headers=config['processing']['check_headers'],
+       processing_add_summary=config['processing']['add_summary'],
+       # matching - company
+       matching_company_strategy=config['matching']['company']['strategy'],
+       matching_company_simple=config['matching']['company']['scores']['simple_ratio'],
+       matching_company_partial=config['matching']['company']['scores']['partial_ratio'],
+       matching_company_token=config['matching']['company']['scores']['token_set_ratio'],
+       matching_company_charterer_enabled=config['matching']['company']['check_charterer'],
+       matching_company_owner_enabled=config['matching']['company']['check_owner'],
+       matching_company_agency_enabled=config['matching']['company']['check_agency'],
+       # matching - port / vessel
+       matching_port_enabled=config['matching']['port']['enabled'],
+       matching_vessel_enabled=config['matching']['vessel']['enabled'],
+   ))   
    dep_config= ft.use_memo(lambda : DepurationConfig())
 
    open_depuration_dialog = use_dialog(
@@ -473,6 +507,61 @@ def LineUpConfigComponent():
                             ),
                         ]
                     )
+                ]
+            ),
+            section_divider(),
+            ft.Column(
+                controls=[
+                    section_title('Fuzzy matching'),
+                     ft.Text('Company roles', size = 11, weight=ft.FontWeight.W_400,color=ft.Colors.ON_SECONDARY_CONTAINER),
+                     ft.Row(
+                        spacing=4,
+                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                        controls=[
+                            ft.Switch(
+                                value=app.matching_company_owner_enabled,
+                                disabled=not app.is_editing,
+                                label='Owners',
+                                on_change=lambda e: app.set_config('matching_company_owner_enabled', e.control.value)
+                            ),
+                            ft.Switch(
+                                value=app.matching_company_charterer_enabled,
+                                disabled=not app.is_editing,
+                                label='Charterers',
+                                on_change=lambda e: app.set_config('matching_company_charterer_enabled', e.control.value)
+                            ),
+                            ft.Switch(
+                                value=app.matching_company_agency_enabled,
+                                disabled=not app.is_editing,
+                                label='Agency',
+                                on_change=lambda e: app.set_config('matching_company_agency_enabled', e.control.value)
+                            ),
+                        ]
+                    ),                   
+                  ft.Text('Foregein ports', size = 11, weight=ft.FontWeight.W_400,color=ft.Colors.ON_SECONDARY_CONTAINER),
+                  ft.Row(
+                     spacing=4,
+                     controls=[
+                         ft.Switch(
+                             value=app.matching_port_enabled,
+                             disabled=not app.is_editing,
+                             label='Enable ports check',
+                             on_change=lambda e: app.set_config('matching_port_enabled', e.control.value)
+                         ),
+                     ]
+                    ),
+                  ft.Text('Vessels', size = 11, weight=ft.FontWeight.W_400,color=ft.Colors.ON_SECONDARY_CONTAINER),
+                  ft.Row(
+                     spacing=4,
+                     controls=[
+                         ft.Switch(
+                             value=app.matching_vessel_enabled,
+                             disabled=not app.is_editing,
+                             label='Enable vessels check',
+                             on_change=lambda e: app.set_config('matching_vessel_enabled', e.control.value)
+                         ),
+                     ]
+                    ),
                 ]
             ),
             ft.TextField(

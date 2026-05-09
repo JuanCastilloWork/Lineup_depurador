@@ -10,11 +10,19 @@ from pathlib import Path
 import re
 import logging
 import pandas as pd
-
-
+from excel.file_matching import excel_processor
+import unicodedata
 logger = logging.getLogger('__main__')
  
 # ── Constantes ────────────────────────────────────────────────────────────────
+
+def _normalize_file_name(s : str):
+   normalized = unicodedata.normalize('NFKD', s)
+   ascii_only = normalized.encode('ascii', 'ignore').decode('ascii').lower()
+   result =  re.sub(r'[^a-z ]', '', ascii_only.lower().strip())
+   result = re.sub(r' +', '_', result).strip('_')
+   return result
+
  
 MONTH_MAP = {
    'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4,
@@ -106,7 +114,7 @@ def process_lineups(lineups_path: Path, office_ports: dict[str, list[str]], year
          (
             f for f in lineups_path.glob('*.xlsx')
             if not f.name.startswith('~$')
-            and office in f.stem.lower().replace(' ','_')
+            and office.lower() in _normalize_file_name(f.stem)
          ),
          None
       )      

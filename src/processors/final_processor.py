@@ -126,6 +126,9 @@ class PostProcessor:
  
       TODO: implementar cuando se defina el contrato de columnas/tipos.
       """
+
+      if df.empty:
+         return df
       
       mask_skip = df[Columns.MT_BY_PRODUCT].isna() | df[Columns.MT_BY_PRODUCT].str.contains("/", na=False)
       
@@ -229,7 +232,8 @@ class PostProcessor:
       self._vessel_conflicts = conflicts
 
    def _run_company_matching(self) -> None:
-      company_cfg = self._config.get("company_matching", {})
+      matching_cfg = self._config.get("matching", {})
+      company_cfg = matching_cfg.get('company',{})
  
       role_idx = self._validation_data.get_companies_by_role(
          charterers=company_cfg.get("check_charterer", False),
@@ -333,11 +337,12 @@ class PostProcessor:
  
 
    def _run_port_matching(self) -> None:
-      if not self._config.get("port_matching", {}).get("enabled", False):
+      if not self._config.get('matching',{}).get("port", {}).get("enabled", False):
          return
  
       known_ports = self._validation_data.get_port_countries()
-      scores_cfg = self._config.get("port_matching", {}).get("scores", {})
+      
+      scores_cfg = self._config.get('matching',{}).get("port", {}).get("scores", {})
       max_suggestions: int = self._config.get("max_suggestions", 5)
  
       port_col = Columns.PORT_LOAD_DISCH
@@ -401,11 +406,11 @@ class PostProcessor:
             }
          )
    def _run_vessel_matching(self) -> None:
-      if not self._config.get("vessel_matching", {}).get("enabled", False):
+      if not self._config.get('matching',{}).get("vessel", {}).get("enabled", False):
          return
  
       known_vessels = self._validation_data.get_vessels()
-      scores_cfg = self._config.get("vessel_matching", {}).get("scores", {})
+      scores_cfg = self._config.get('matching').get("vessel", {}).get("scores", {})
       max_suggestions: int = self._config.get("max_suggestions", 5)
  
       vessel_col = Columns.VESSEL

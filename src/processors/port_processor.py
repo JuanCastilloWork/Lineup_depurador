@@ -863,9 +863,24 @@ class BaseLineUpProcessor(ABC, Generic[L,R]):
 
    def _clean_common(self, df: pd.DataFrame, layout : type[LineUpBaseLayout], terminals : list[str], vessel_cargo : pd.DataFrame, company_blacklist : set[str],current_date : datetime) -> tuple[pd.DataFrame,ValidationReport]:
       report = ValidationReport()
-      idx = df[self.columns.VESSEL].isna().idxmax()
-      if pd.isna(df.at[idx, self.columns.VESSEL]):
-         df = df.iloc[:idx].reset_index(drop=True)
+      
+      other_cols = [c for c in df.columns if c != self.columns.VESSEL]
+      MIN_OTHER_COLS = 2
+      
+      # Drop filas donde VESSEL es NaN
+      vessel_na_idx = df[self.columns.VESSEL].isna().idxmax()
+      if pd.isna(df.at[vessel_na_idx, self.columns.VESSEL]):
+          df = df.iloc[:vessel_na_idx].reset_index(drop=True)
+      
+      # Drop filas donde VESSEL existe pero hay menos de 3 columnas adicionales con datos
+      rows_insufficient = df[other_cols].notna().sum(axis=1) < MIN_OTHER_COLS
+      if rows_insufficient.any():
+          first_insufficient = rows_insufficient.idxmax()
+          df = df.iloc[:first_insufficient].reset_index(drop=True)
+      print(df)
+      if df.empty:
+          return df, report
+      
       vessel_series = df[self.columns.VESSEL]
       assert isinstance(vessel_series,pd.Series)
       for member in layout:

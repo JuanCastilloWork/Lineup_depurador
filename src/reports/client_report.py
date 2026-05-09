@@ -29,7 +29,7 @@ ROW_ALT_FG = '002060'
 ERROR_FILL_COLOR = 'FF4C4C'   # rojo para celdas con error
 
 _thin = Side(style='thin', color = BORDER_COLOR)
-_dashed = Side(style='dashed',color = BORDER_COLOR)
+_dashed = Side(style='hair',color = BORDER_COLOR)
 _cell_border_thin = Border(left=_thin, right=_thin, top=_thin, bottom=_thin)
 _cell_border_dashed = Border(left=_dashed, right=_dashed, top=_dashed, bottom=_dashed)
 
@@ -41,24 +41,23 @@ def _apply_border_to_merged_range(ws: Worksheet, cell_range: str, border: Border
        for col in range(min_col, max_col + 1):
            ws.cell(row=row, column=col).border = border
 
-def _style_col_header(cell):
+def _style_col_header(cell : Cell):
 
    cell.font      = Font(name="Calibri", color=COL_HEADER_FG, size=11)
    cell.fill      = PatternFill("solid", start_color=COL_HEADER_BG)
    cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=False)
    cell.border    = _cell_border_dashed
 
-
 def _style_data_cell(cell: Cell, alternate: bool = False, has_error: bool = False):
     fg = ROW_ALT_FG if alternate else "000000"
-    cell.font      = Font(name="Calibri", size=9, color=fg, bold=alternate)
+    cell.font      = Font(name="Calibri", size=11, color=fg, bold=alternate)
     cell.fill      = (
         PatternFill("solid", start_color=ERROR_FILL_COLOR)
         if has_error
         else PatternFill("solid", start_color='FFFFFF')
     )
     cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
-    cell.border    = _cell_border_thin
+    cell.border    = _cell_border_dashed
 
 def _make_anchor(ws, col_letter, row_num, offset_x_px, offset_y_px, img_w_px, img_h_px):
    """Crea un OneCellAnchor con offsets en EMU para centrar la imagen."""
@@ -88,13 +87,14 @@ class LineUpExcelReport:
       bundle : dict[str,PortBundle],      
       company: str,
       lineup_date: date,
+      cod : str, cod_date : str
                 ) -> None:
 
       self._bundle = bundle
       self._company             = company.upper()
       self._lineup_date         = lineup_date
-      self._current_cod         = 'DB-GOP - FT - 16 / 3'
-      self._current_cod_date    = date(2023, 9, 8)
+      self._current_cod         = cod
+      self._current_cod_date    = cod_date
 
 
    def _build_error_index(
@@ -124,7 +124,7 @@ class LineUpExcelReport:
           if hasattr(val, 'col') and hasattr(val, 'name'):
               result[member.name] = val  # member.name = "DATE_OF_ARRIVAL", val.name = "DATE OF ARRIVAL"
       return result
-      
+
    def _write_data_columns(
       self,
       ws: Worksheet,
@@ -132,15 +132,23 @@ class LineUpExcelReport:
       layout_cls: type[layots.LineUpBaseLayout],
       error_index: dict[str, set[int]],
       header_row: int,
-      agency_col_name: str = "AGENCY",   # nombre del ColDef attr para AGENCY
+      agency_col_name: str = "AGENCY",   # nombre del ColDef attr para AGENCY,
+      no_data_placeholder : str = 'theres no vessels'
     ):
       """
       Itera por ColDef (columna a columna).  Para cada ColDef busca la Serie
       del DataFrame cuyo nombre de columna coincide con ColDef.name y escribe
       todas las celdas de esa columna de una vez.
       """
-      attr_map = self._layout_attr_map(layout_cls)
+
+
+      if df.empty:
+         min,max = layout_cls.col_range()
+         cell = ws.cell(row = header_row+1, column=min)
+         cell.value = no_data_placeholder
+         return
  
+      attr_map = self._layout_attr_map(layout_cls)
       # Precalculamos filas que pertenecen a la compañía (deep_blue)
       # Buscamos el ColDef cuyo attr_name sea AGENCY
       agency_col_def = attr_map.get(agency_col_name)
@@ -173,9 +181,9 @@ class LineUpExcelReport:
  
             # Alineaciones especiales por columna
             if attr_name == 'PIER':
-               cell.alignment = Alignment(horizontal='center')
+               cell.alignment = Alignment(horizontal='center',vertical='center')
             elif attr_name in ('MT_BY_PRODUCT', 'TOTAL_MT'):
-               cell.alignment = Alignment(horizontal='right')
+               cell.alignment = Alignment(horizontal='right',vertical = 'center')
                
                if isinstance(value, Decimal):
                   if value % 1 == Decimal('0'):
@@ -267,10 +275,11 @@ class LineUpExcelReport:
       xl_img.anchor = 'B2'
       xl_img.anchor = _make_anchor(ws, 'B', 2, offset_x, offset_y, new_w, new_h)
       ws.add_image(xl_img)
+      image_cell : Cell = ws['B2']      
 
       # Titulo
       title_cell : Cell = ws['E2']
-      title_cell.value = f'{port.upper()} PORT LINE - UP'
+      title_cell.value = f'{port.upper().replace('_',' ')} PORT LINE - UP'
       title_cell.font      = Font(name="Calibri", bold=True, size=14, color=HEADER_TITLE_FG)
       title_cell.fill      = PatternFill("solid", start_color=HEADER_TITLE_BG)
       title_cell.alignment = Alignment(horizontal="center", vertical="center")
@@ -285,11 +294,12 @@ class LineUpExcelReport:
 
       # Cod
       cod_cell : Cell = ws['P2']
-      cod_cell.value = f'DATE: {self._current_cod_date.strftime('%d-%m-%Y')}'
+      cod_cell.value = f'DATE: {self._current_cod_date}'
       cod_cell.font      = Font(name="Calibri", bold=True, size=11, color=HEADER_FG)
       cod_cell.fill      = PatternFill("solid", start_color=HEADER_BG)
       cod_cell.alignment = Alignment(horizontal="center", vertical="center")
 
+      _apply_border_to_merged_range(ws, 'B2:D7',_cell_border_thin)
       _apply_border_to_merged_range(ws, 'N2:O7', _cell_border_thin)
       if layout_cls == layots.LineUpReportVariantLayout:
          _apply_border_to_merged_range(ws, 'P2:R7', _cell_border_thin)
@@ -308,7 +318,7 @@ class LineUpExcelReport:
       cell.font      = Font(name="Calibri", size=11)
       cell.alignment = Alignment(horizontal="center", vertical="center")
 
-   def create_report(self, output_path : Path = Path('daily_lineup.xlsx'), header_row : int = 12, logo_path : Path = Path('./templates/assets/company_logo.png')):
+   def create_report(self, output_path : Path = Path('daily_lineup.xlsx'), header_row : int = 12, logo_path : Path = Path('./templates/assets/company_logo.png'), no_data_placeholder : str = 'theres no vessels'):
 
       wb = Workbook()
       wb.remove(wb.active)
@@ -320,7 +330,8 @@ class LineUpExcelReport:
          sheet_name = port_name.upper().replace('_',' ')   
          sheet: Worksheet = wb.create_sheet(sheet_name)
          sheet.sheet_view.showGridLines = False
- 
+         sheet.sheet_view.zoomScale = 80
+         
          self._change_column_widths(sheet, layout_cls)
          self._write_header_block(sheet, layout_cls, port_name, logo_path)
  
@@ -330,7 +341,9 @@ class LineUpExcelReport:
              cell = sheet.cell(header_row, col_def.col)
              cell.value = col_def.name      # label visible en Excel = ColDef.name
              _style_col_header(cell)
- 
+
+         sheet.row_dimensions[header_row].height = 18
+         
          # Datos (iteración por columna)
          self._write_data_columns(
              ws=sheet,
@@ -338,7 +351,10 @@ class LineUpExcelReport:
              layout_cls=layout_cls,
              error_index=error_index,
              header_row=header_row,
+             no_data_placeholder=no_data_placeholder
          )
+         for row in range(header_row+1,header_row+1 +len(port_bundle.df)+1):
+            sheet.row_dimensions[row].height = 18
  
       wb.save(output_path)
       return output_path
