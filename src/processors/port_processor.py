@@ -213,8 +213,8 @@ def _validate_status(
       allowed_ops = _VALID_STATUS_OPERATIONS.get(v_status, set())
       if o_status not in allowed_ops:
          reason = (
-            f"OperationStatus '{o_status.value}' no es válido "
-            f"para VesselStatus '{v_status.value}'"
+            f"OperationStatus '{o_status}' no es válido "
+            f"para VesselStatus '{v_status}'"
          )
          report.add_error(df.at[idx, col_vessel], idx, col_operation_status, o_status, reason, ErrorType.INVALID_VALUE)
          logger.error('Indice %s | %s | %s | %s', idx, col_operation_status, o_status, reason)
@@ -431,15 +431,14 @@ def _validate_cargo(
       if diff_ratio <= MARGIN_THRESHOLD:
          reason = (
              f"Suma MT_BY_PRODUCT ({mt_sum}) difiere de TOTAL_MT ({total}) "
-             f"— margen {float(diff_ratio):.1%} (≤20%)"
+             f"— margen {float(diff_ratio):.1%} (≤20%) (No se cambia en el archivo)"
          )
          report.add_error(df.at[idx, col_vessel], int(idx), col_mt_by_product, df.at[idx, col_mt_by_product], reason, ErrorType.INVALID_VALUE)
          logger.error('Indice %s | %s | %s | %s', idx, col_mt_by_product, str(df.at[idx, col_mt_by_product]), reason)
-         mark(int(idx), col_mt_by_product)
       else:
          reason = (
              f"Suma MT_BY_PRODUCT ({mt_sum}) difiere de TOTAL_MT ({total}) "
-             f"— margen {float(diff_ratio):.1%} (>20%)"
+             f"— margen {float(diff_ratio):.1%} (>20%) (Se hizo el cambio en el archivo)"
          )
          report.add_error(df.at[idx, col_vessel], int(idx), col_mt_by_product, df.at[idx, col_mt_by_product], reason, ErrorType.INVALID_VALUE)
          report.add_error(df.at[idx, col_vessel], int(idx), col_total_mt, df.at[idx, col_total_mt], reason, ErrorType.INVALID_VALUE)
@@ -477,7 +476,6 @@ def _validate_cargo(
    for idx, cols in invalid.items():
       for col in set(cols):
          df.at[idx, col] = None
-   
    valid_rows = explodable & ~pd.Series(df.index.isin(invalid), index=df.index)
    df.loc[valid_rows, col_product] = (
       prod_lists.loc[valid_rows].str.join("/")
@@ -487,7 +485,6 @@ def _validate_cargo(
       .groupby(level=0)['_mt_dec']
       .apply(join_or_decimal)
    )
-
    mt_bp_empty = df[col_mt_by_product].isna()
    total_present = ~df[col_total_mt].isna()
    fallback_mask = mt_bp_empty & total_present
@@ -499,7 +496,6 @@ def _validate_cargo(
             'Indice %s | %s asumido desde %s | valor: %s',
             idx, col_mt_by_product, col_total_mt, df.at[idx, col_mt_by_product]
          )
-
    return df
 
 def join_or_decimal(series):
@@ -628,7 +624,6 @@ def _cast_et_interval(
 
    def _to_ordinal(date_s: pd.Series, period_s: pd.Series, open_end: bool = False) -> pd.Series:
       result = pd.Series(pd.NA, index=date_s.index, dtype="Int64")
-   
       fecha_nula = date_s.isna()
       mascara = ~fecha_nula
       a = period_s[mascara]
@@ -637,12 +632,16 @@ def _cast_et_interval(
 
       b = date_s[mascara]
       assert isinstance(b,pd.Series)
-      
-      result[mascara] = (
-         b.map(lambda f: f.toordinal()) * 2
-         + pm_mask.astype(int)
-      )
-   
+      ordinals = b.map(lambda f: f.toordinal())
+      if not ordinals.empty:
+         result[mascara] = (
+            ordinals * 2
+           + pm_mask.astype(int)
+      )  
+      #result[mascara] = (
+      #   b.map(lambda f: f.toordinal()) * 2
+      #   + pm_mask.astype(int)
+      #)
       if open_end:
          result[fecha_nula] = _OPEN_END
    
@@ -707,11 +706,9 @@ def _cast_et_interval(
    eta_p_clean[filas_con_error] = None
    etb_p_clean[filas_con_error] = None
    etc_p_clean[filas_con_error] = None
-
    eta_ord_raw = _to_ordinal(eta, eta_p)
    etb_ord_raw = _to_ordinal(etb, etb_p)
    etc_ord_raw = _to_ordinal(etc, etc_p, True)   
-
    mask_valid = (
        eta_ord_raw.notna() &
        etb_ord_raw.notna() &
@@ -877,7 +874,6 @@ class BaseLineUpProcessor(ABC, Generic[L,R]):
       if rows_insufficient.any():
           first_insufficient = rows_insufficient.idxmax()
           df = df.iloc[:first_insufficient].reset_index(drop=True)
-      print(df)
       if df.empty:
           return df, report
       
@@ -956,7 +952,6 @@ class BaseLineUpProcessor(ABC, Generic[L,R]):
       assert isinstance(ser_etb_per, pd.Series)
       assert isinstance(ser_etc, pd.Series)
       assert isinstance(ser_etc_per, pd.Series)      
-      
       ata_ordinal, etc_ordinal = _cast_et_interval(
          ser_ata,
          ser_ata_per,

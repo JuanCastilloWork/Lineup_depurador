@@ -25,7 +25,17 @@ document.addEventListener("DOMContentLoaded", () => {
       document.body.classList.toggle("hide-warnings", !toggle.checked);
     });
   }
+
+  const fab = document.getElementById('fab-top');
+  if (fab) {
+    fab.addEventListener('click', () => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  }
+  
 });
+
+
 
 function switchMatchTab(targetId, clickedBtn) {
   const section = clickedBtn.closest('section');
@@ -38,4 +48,6 @@ function switchMatchTab(targetId, clickedBtn) {
   document.getElementById(targetId).classList.remove('match-grid--hidden');
   clickedBtn.classList.add('match-tab--active');
 };
+
+
  

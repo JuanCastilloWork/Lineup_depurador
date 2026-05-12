@@ -318,7 +318,58 @@ class LineUpExcelReport:
       cell.font      = Font(name="Calibri", size=11)
       cell.alignment = Alignment(horizontal="center", vertical="center")
 
-   def create_report(self, output_path : Path = Path('daily_lineup.xlsx'), header_row : int = 12, logo_path : Path = Path('./templates/assets/company_logo.png'), no_data_placeholder : str = 'theres no vessels'):
+   def add_footer_lineup(self,port : str, contact : dict,sheet : Worksheet, row : int):
+
+      for _ in range(1,6):
+         sheet.row_dimensions[row +_].height = 18
+
+      sheet.merge_cells(f'F{row+4}:I{row+4}')
+      sheet.merge_cells(f'F{row+5}:I{row+5}')
+      sheet.merge_cells(f'J{row+4}:K{row+5}')
+      sheet.merge_cells(f'L{row+4}:O{row+5}')
+      
+      cell = sheet.cell(row+2,2)
+      cell.value = 'Remarks'
+      cell.alignment = Alignment(horizontal="center", vertical="center")
+      cell.font      = Font(name="Calibri", bold=True, size=12, color=COL_HEADER_FG)
+      cell.fill = PatternFill(start_color=COL_HEADER_BG, end_color=COL_HEADER_BG, fill_type='solid')
+      
+      sheet.merge_cells(f'B{row+4}:E{row+5}')
+      cell = sheet[f'B{row+4}']
+      cell.value = port.upper().replace('_',' ')+' PORT OFFICE'
+      cell.alignment = Alignment(horizontal="center", vertical="center")
+      cell.font      = Font(name="Calibri", bold=True, size=12, color=COL_HEADER_FG)
+      cell.fill = PatternFill(start_color=COL_HEADER_BG, end_color=COL_HEADER_BG, fill_type='solid')
+      
+      cell = sheet[f'F{row+4}']
+      cell.value = contact.get('email','')
+      cell.alignment = Alignment(horizontal="center", vertical="center")
+
+      cell.font      = Font(name="Calibri", bold=False, size=12, color=COL_HEADER_FG)
+      cell.fill = PatternFill(start_color=COL_HEADER_BG, end_color=COL_HEADER_BG, fill_type='solid')
+
+      cell = sheet[f'F{row+5}']
+      cell.value = contact.get('web_page','')
+      cell.alignment = Alignment(horizontal="center", vertical="center")
+      cell.font      = Font(name="Calibri", bold=False, size=12, color=COL_HEADER_FG)
+      cell.fill = PatternFill(start_color=COL_HEADER_BG, end_color=COL_HEADER_BG, fill_type='solid')
+
+      cell = sheet[f'J{row+4}']
+      cell.value = contact.get('phone','')
+      cell.alignment = Alignment(horizontal="center", vertical="center")
+      cell.font      = Font(name="Calibri", bold=True, size=10, color=COL_HEADER_FG)
+      cell.fill = PatternFill(start_color=COL_HEADER_BG, end_color=COL_HEADER_BG, fill_type='solid')
+
+      cell = sheet[f'L{row+4}']
+      cell.alignment = Alignment(horizontal="center", vertical="center")
+      cell.font      = Font(name="Calibri", bold=False, size=12, color=COL_HEADER_FG)
+      cell.fill = PatternFill(start_color=COL_HEADER_BG, end_color=COL_HEADER_BG, fill_type='solid')
+   
+   def create_report(
+      self, output_path : Path = Path('daily_lineup.xlsx'), header_row : int = 12,
+      logo_path : Path = Path('./templates/assets/company_logo.png'),
+      no_data_placeholder : str = 'theres no vessels', contact : dict = {}
+   ):
 
       wb = Workbook()
       wb.remove(wb.active)
@@ -341,8 +392,6 @@ class LineUpExcelReport:
              cell = sheet.cell(header_row, col_def.col)
              cell.value = col_def.name      # label visible en Excel = ColDef.name
              _style_col_header(cell)
-
-         sheet.row_dimensions[header_row].height = 18
          
          # Datos (iteración por columna)
          self._write_data_columns(
@@ -353,8 +402,11 @@ class LineUpExcelReport:
              header_row=header_row,
              no_data_placeholder=no_data_placeholder
          )
-         for row in range(header_row+1,header_row+1 +len(port_bundle.df)+1):
+                  
+         for row in range(header_row,header_row+len(port_bundle.df)+1):
             sheet.row_dimensions[row].height = 18
- 
+
+         self.add_footer_lineup(port_name,contact,sheet, row = header_row+len(port_bundle.df))
+         
       wb.save(output_path)
       return output_path

@@ -185,6 +185,7 @@ class PostProcessor:
       df.loc[is_empty, col_name] = "TBC"      
       df = self._fill_na(df) 
       return df
+
    def _build_global_df(self) -> None:
       frames = [b.df for b in self._bundles.values()]
       if not frames:

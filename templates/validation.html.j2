@@ -22,7 +22,7 @@
         </div>
       </div>
     </div>
-
+    
     <div class="header-right">
       <div class="date-display">
         <strong>{{generated_at}}</strong>
@@ -235,6 +235,10 @@
                   <span class="overlap-date-key">ETC</span>
                   <span class="overlap-date-val">{{ ov.row_a_data['ETC'] }}</span>
                 </div>
+                <div class="overlap-date-row">
+                  <span class="overlap-date-key">OPERATION</span>
+                  <span class="overlap-date-val">{{ ov.row_a_data['OPERATION'] }}</span>
+                </div>
               </div>
             </div>
   
@@ -260,6 +264,11 @@
                   <span class="overlap-date-key">ETC</span>
                   <span class="overlap-date-val">{{ ov.row_b_data['ETC'] }}</span>
                 </div>
+                <div class="overlap-date-row">
+                  <span class="overlap-date-key">OPERATION</span>
+                  <span class="overlap-date-val">{{ ov.row_a_data['OPERATION'] }}</span>
+                </div>
+
               </div>
             </div>
   
@@ -549,6 +558,10 @@
 
   
   </main>
+  
+  <button id="fab-top" aria-label="Ir al inicio">
+    ↑
+  </button>
 
 </body>
 </html>

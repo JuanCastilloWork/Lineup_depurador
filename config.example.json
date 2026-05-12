@@ -16,6 +16,11 @@
       "bold": true,
       "italic": false
     },
+    "contact":{
+      "email":"comercial@ejemplo.com",
+      "web_page":"pagina_ejemplo",
+      "phone":"PH: (+1) 23 212 2121"
+    },
     "filename_prefix": "Line up validation",
     "outputname_prefix":"Line Up Colombian Ports",
     "cod":"DB-GCO-FT-14/04",

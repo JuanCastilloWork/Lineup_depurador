@@ -7,6 +7,30 @@
   --ice-white: rgba(255, 255, 255, 0.9);
 }
 
+
+#fab-top {
+  position: fixed;      /* fijo en pantalla */
+  bottom: 2rem;         /* distancia al fondo */
+  right: 2rem;          /* distancia a la derecha */
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;   /* lo hace circular */
+  background: #1D9E75;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  transition: background 0.2s, transform 0.15s;
+  z-index: 999;
+}
+
+#fab-top:hover {
+  background: #0F6E56;
+  transform: scale(1.08);
+}
+
 body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   background-color: #fcfdfe;

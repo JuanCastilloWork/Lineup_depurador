@@ -23,12 +23,13 @@ def check_overlaps(
    vessel_col = layots.Columns.VESSEL
    ata_col    = layots.Columns.DATE_OF_ARRIVAL
    etc_col    = layots.Columns.ETC
+   op_col = layots.Columns.OPERATION
    start_col  = '_DATE_OF_ARRIVAL_ORD'
    end_col    = '_ETC_ORD'
    sheet_col  = 'PORT'
    df_idx = '_IDX'
 
-   for vessel, group in df[[vessel_col,ata_col,etc_col,start_col,end_col,sheet_col,df_idx]].groupby(vessel_col,dropna=False):
+   for vessel, group in df[[vessel_col,ata_col,etc_col,start_col,end_col,sheet_col,df_idx, op_col]].groupby(vessel_col,dropna=False):
       valid = group.dropna(subset=[start_col]).sort_values(start_col)
       if len(valid) < 2:
          continue
@@ -44,7 +45,7 @@ def check_overlaps(
                 sheet_b=curr[sheet_col],
                 interval_a=(prev[start_col], prev[end_col]),
                 interval_b=(curr[start_col], curr[end_col]),
-                row_a_data={ata_col: prev[ata_col], etc_col: prev[etc_col]},
-                row_b_data={ata_col: curr[ata_col], etc_col: curr[etc_col]},
+                row_a_data={ata_col: prev[ata_col], etc_col: prev[etc_col], op_col : prev[op_col]},
+                row_b_data={ata_col: curr[ata_col], etc_col: curr[etc_col], op_col : curr[op_col]},
             ))
    return conflicts

@@ -13,7 +13,7 @@ HEX_PATTERN = re.compile(r'^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$')
 
 Path('./logs/').mkdir(exist_ok=True)
 
-file_handler = RotatingFileHandler('./logs/depuration.log',maxBytes=5*1024*1024, encoding='utf-8', backupCount=3)
+file_handler = RotatingFileHandler('./logs/depuration.log',maxBytes=1*1024*1024, encoding='utf-8', backupCount=3)
 formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 file_handler.setFormatter(formatter)
 
@@ -283,7 +283,7 @@ def LineUpConfigComponent():
          client_report_config['cod_date']
       )
       client_report.create_report(output_path /f'{client_report_config['outputname_prefix']} {lineup_date.strftime('%d.%m.%Y')}.xlsx',header_row=_config['processing']['header_row'],
-         no_data_placeholder=client_report_config['no_data_placeholder']
+         no_data_placeholder=client_report_config['no_data_placeholder'], contact=client_report_config['contact']
       )
 
    async def on_create_axiliar_files(e):
